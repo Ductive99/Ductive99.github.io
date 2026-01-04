@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Houssain Souhail - Systems & Software Engineer</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font Awesome (for icons) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Custom Styles for Chart Containers - MANDATORY per requirements */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f5f5f4; /* stone-100: Warm neutral background */
+            color: #1c1917; /* stone-900 */
+        }
+
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Card Hover Effects */
+        .project-card {
+            transition: all 0.3s ease;
+        }
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+
+</head>
+<body class="bg-stone-50 text-stone-800 antialiased selection:bg-orange-200 selection:text-orange-900">
+
+    <!-- Navigation -->
+    <nav class="sticky top-0 z-50 bg-stone-50/90 backdrop-blur-md border-b border-stone-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex-shrink-0 flex items-center">
+                    <span class="font-bold text-xl tracking-tight text-stone-900">ES<span class="text-orange-600">.</span></span>
+                </div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#about" class="text-stone-600 hover:text-orange-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">About</a>
+                    <a href="#skills" class="text-stone-600 hover:text-orange-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Tech Stack</a>
+                    <a href="#projects" class="text-stone-600 hover:text-orange-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Projects</a>
+                    <a href="#education" class="text-stone-600 hover:text-orange-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">Education</a>
+                </div>
+                <div>
+                    <a href="#contact" class="bg-stone-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 transition-colors shadow-lg">Contact Me</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header id="about" class="relative overflow-hidden pt-16 pb-24 lg:pt-32 lg:pb-40 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="lg:grid lg:grid-cols-12 lg:gap-8">
+                <div class="sm:text-center md:max-w-2xl md:mx-auto lg:col-span-7 lg:text-left">
+                    <div class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800 mb-6 border border-green-200">
+                        <span class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                        Available Feb/March 2026
+                    </div>
+                    <h1 class="text-4xl tracking-tight font-extrabold text-stone-900 sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl">
+                        <span class="block xl:inline">El Houssain Souhail</span>
+                        <span class="block text-orange-600 mt-2 text-3xl sm:text-4xl">Software Engineer & Systems Specialist</span>
+                    </h1>
+                    <p class="mt-6 text-lg text-stone-500 sm:mt-8 sm:text-xl md:mt-8 md:text-xl lg:mx-0">
+                        Bridging the gap between <strong>low-level system architecture</strong> and <strong>high-performance web solutions</strong>. From optimizing memory in C to building scalable real-time SPAs.
+                    </p>
+                    <div class="mt-8 flex flex-col sm:flex-row sm:justify-center lg:justify-start gap-4">
+                        <div class="flex items-center text-stone-600">
+                            <i class="fas fa-map-marker-alt mr-2 text-orange-500"></i> Paris, France (Mobile)
+                        </div>
+                        <div class="flex items-center text-stone-600">
+                            <i class="fas fa-graduation-cap mr-2 text-orange-500"></i> 42 Paris Student
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Stats / Hero Visual -->
+                <div class="mt-12 relative sm:max-w-lg sm:mx-auto lg:mt-0 lg:max-w-none lg:mx-0 lg:col-span-5 lg:flex lg:items-center">
+                    <div class="bg-stone-50 rounded-2xl shadow-xl border border-stone-200 p-6 w-full">
+                        <h3 class="text-lg font-bold text-stone-800 mb-4 border-b border-stone-200 pb-2">Core Competencies</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-sm font-medium text-stone-700">Systems Programming (C/C++)</span>
+                                    <span class="text-sm font-medium text-stone-700">Advanced</span>
+                                </div>
+                                <div class="w-full bg-stone-200 rounded-full h-2">
+                                    <div class="bg-stone-800 h-2 rounded-full" style="width: 95%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-sm font-medium text-stone-700">Backend (Python, SQL)</span>
+                                    <span class="text-sm font-medium text-stone-700">Advanced</span>
+                                </div>
+                                <div class="w-full bg-stone-200 rounded-full h-2">
+                                    <div class="bg-orange-600 h-2 rounded-full" style="width: 90%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-sm font-medium text-stone-700">Web Architecture (Next.js)</span>
+                                    <span class="text-sm font-medium text-stone-700">Proficient</span>
+                                </div>
+                                <div class="w-full bg-stone-200 rounded-full h-2">
+                                    <div class="bg-stone-500 h-2 rounded-full" style="width: 85%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Technical Analysis Section -->
+    <section id="skills" class="py-16 bg-stone-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-extrabold text-stone-900 sm:text-4xl">Technical Arsenal</h2>
+                <p class="mt-4 max-w-2xl text-xl text-stone-500 mx-auto">
+                    A visual breakdown of my capabilities, highlighting the duality between system-level control and application-level flexibility.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Radar Chart: Skill Balance -->
+                <div class="bg-white rounded-xl shadow-md p-6 border border-stone-200">
+                    <h3 class="text-lg font-bold text-stone-800 mb-2">Engineering Focus Areas</h3>
+                    <p class="text-sm text-stone-500 mb-6">This radar chart illustrates my balanced profile: strong roots in algorithms and systems, with practical modern DevOps and Web skills.</p>
+                    <div class="chart-container">
+                        <canvas id="skillsRadarChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Bar Chart: Languages -->
+                <div class="bg-white rounded-xl shadow-md p-6 border border-stone-200">
+                    <h3 class="text-lg font-bold text-stone-800 mb-2">Language Proficiency</h3>
+                    <p class="text-sm text-stone-500 mb-6">Quantitative assessment of my primary programming languages based on project complexity and lines of code written.</p>
+                    <div class="chart-container">
+                        <canvas id="languagesBarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Tags -->
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-stone-50 p-4 rounded-lg border border-stone-200">
+                    <h4 class="font-bold text-orange-700 mb-2"><i class="fas fa-server mr-2"></i>Backend & Infra</h4>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">Docker</span>
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">NoSQL</span>
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">MongoDB</span>
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">PostgreSQL</span>
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">Unix/Linux</span>
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">CI/CD</span>
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">MySQL</span>
+                    </div>
+                </div>
+                <div class="bg-stone-50 p-4 rounded-lg border border-stone-200">
+                    <h4 class="font-bold text-blue-700 mb-2"><i class="fas fa-code mr-2"></i>Web Technologies</h4>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">Next.js</span>
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">TypeScript</span>
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">WebSockets</span>
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">OAuth2</span>
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">RESTful APIs</span>
+                    </div>
+                </div>
+                <div class="bg-stone-50 p-4 rounded-lg border border-stone-200">
+                    <h4 class="font-bold text-stone-700 mb-2"><i class="fas fa-brain mr-2"></i>Qualities</h4>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">Technical Rigor</span>
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">Manual Memory Mgmt</span>
+                        <span class="px-3 py-1 bg-white border border-stone-300 rounded-full text-xs font-medium text-stone-700">Algorithmic Optimization</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Project Showcase -->
+    <section id="projects" class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-10">
+                <div>
+                    <h2 class="text-3xl font-extrabold text-stone-900">Featured Projects</h2>
+                    <p class="mt-2 text-stone-500">Filter by category to explore my diverse skillset.</p>
+                </div>
+                <div class="mt-4 md:mt-0 flex space-x-2">
+                    <button onclick="filterProjects('all')" class="filter-btn active bg-stone-800 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors hover:bg-stone-700">All</button>
+                    <button onclick="filterProjects('systems')" class="filter-btn bg-white text-stone-600 border border-stone-300 px-4 py-2 rounded-md text-sm font-medium transition-colors hover:bg-stone-50">Systems (C/C++)</button>
+                    <button onclick="filterProjects('web')" class="filter-btn bg-white text-stone-600 border border-stone-300 px-4 py-2 rounded-md text-sm font-medium transition-colors hover:bg-stone-50">Web & Cloud</button>
+                </div>
+            </div>
+
+            <!-- Dynamic Project Grid -->
+            <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
+                <!-- Projects will be injected here via JS -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Education & Timeline -->
+    <section id="education" class="py-16 bg-stone-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-extrabold text-stone-900 mb-12 text-center">Education & Growth Path</h2>
+            
+            <div class="relative">
+                <!-- Vertical line -->
+                <div class="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-stone-200"></div>
+
+                <!-- Timeline Item 1 -->
+                <div class="relative z-10 mb-8">
+                    <div class="flex items-center justify-between w-full">
+                        <div class="w-5/12 text-right pr-8">
+                            <h3 class="text-xl font-bold text-stone-900">42 Paris</h3>
+                            <p class="text-orange-600 font-medium">Computer Science Engineering</p>
+                            <p class="text-stone-500 text-sm mt-1">2025 - Present</p>
+                        </div>
+                        <div class="w-8 h-8 bg-stone-800 rounded-full border-4 border-white shadow flex items-center justify-center text-white text-xs">
+                            <i class="fas fa-code"></i>
+                        </div>
+                        <div class="w-5/12 pl-8">
+                            <div class="bg-white p-4 rounded-lg shadow-sm border border-stone-200">
+                                <p class="text-stone-600 text-sm">Specialization in Unix kernel architecture, manual memory hygiene, and algorithmic complexity. A peer-to-peer rigorous learning environment.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timeline Item 2 -->
+                <div class="relative z-10 mb-8">
+                    <div class="flex items-center justify-between w-full">
+                        <div class="w-5/12 text-right pr-8">
+                             <div class="bg-white p-4 rounded-lg shadow-sm border border-stone-200">
+                                <p class="text-stone-600 text-sm">Intensive backend specialization covering Infrastructure-as-code, configuration management, and server-side performance tuning.</p>
+                            </div>
+                        </div>
+                        <div class="w-8 h-8 bg-orange-600 rounded-full border-4 border-white shadow flex items-center justify-center text-white text-xs">
+                            <i class="fas fa-server"></i>
+                        </div>
+                        <div class="w-5/12 pl-8">
+                            <h3 class="text-xl font-bold text-stone-900">ALX</h3>
+                            <p class="text-stone-600 font-medium">Backend Specialization</p>
+                            <p class="text-stone-500 text-sm mt-1">2023 - 2024</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Languages -->
+             <div class="mt-16 bg-white p-8 rounded-xl shadow-sm border border-stone-200">
+                <h3 class="text-xl font-bold text-stone-900 mb-6 text-center">Languages</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+                    <div>
+                        <div class="text-4xl font-bold text-orange-600 mb-2">C1</div>
+                        <h4 class="font-bold text-stone-800">English</h4>
+                        <p class="text-stone-500 text-sm">Fluent - Professional Proficiency</p>
+                    </div>
+                    <div>
+                        <div class="text-4xl font-bold text-stone-800 mb-2">Proficient</div>
+                        <h4 class="font-bold text-stone-800">French</h4>
+                        <p class="text-stone-500 text-sm">Professional Working Proficiency</p>
+                    </div>
+                    <div>
+                        <div class="text-4xl font-bold text-stone-400 mb-2">Native</div>
+                        <h4 class="font-bold text-stone-800">Arabic</h4>
+                        <p class="text-stone-500 text-sm">Native Proficiency</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact & Footer -->
+    <section id="contact" class="bg-stone-900 text-white py-16">
+        <div class="max-w-4xl mx-auto px-4 text-center">
+            <h2 class="text-3xl font-extrabold mb-6">Let's Build Something Robust</h2>
+            <p class="text-stone-400 mb-8 text-lg">
+                I am actively seeking a 6-month internship starting February/March 2026. 
+                Based in Paris, but willing to relocate within France for the right opportunity.
+            </p>
+            <div class="flex flex-col md:flex-row justify-center gap-6 mb-12">
+                <a href="mailto:souhailelhoussain@gmail.com" class="flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-stone-900 bg-white hover:bg-stone-200 md:py-4 md:text-lg md:px-10 transition-colors">
+                    <i class="fas fa-envelope mr-3 text-orange-600"></i> souhailelhoussain@gmail.com
+                </a>
+                <a href="tel:+33651044003" class="flex items-center justify-center px-6 py-3 border border-stone-600 text-base font-medium rounded-md text-white hover:bg-stone-800 md:py-4 md:text-lg md:px-10 transition-colors">
+                    <i class="fas fa-phone mr-3 text-green-500"></i> +33 6 51 04 40 03
+                </a>
+            </div>
+            <div class="flex justify-center space-x-8 text-2xl">
+                <a href="https://github.com/Ductive99" target="_blank" class="text-stone-400 hover:text-white transition-colors"><i class="fab fa-github"></i></a>
+                <a href="https://linkedin.com/in/elhoussain" target="_blank" class="text-stone-400 hover:text-white transition-colors"><i class="fab fa-linkedin"></i></a>
+            </div>
+            <div class="mt-12 border-t border-stone-800 pt-8 text-stone-500 text-sm">
+                <p>&copy; 2026 El Houssain Souhail. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Application Logic -->
+    <script>
+        const portfolioData = {
+            projects: [
+                {
+                    id: 1,
+                    title: "MiniRT: Raytracing Engine",
+                    category: "systems",
+                    tech: ["C", "Linear Algebra", "Graphics"],
+                    summary: "Built a 3D rendering engine from scratch implementing raytracing algorithms with advanced mathematical modeling.",
+                    details: [
+                        "Achieved zero-leak execution through manual memory management.",
+                        "Implemented low-level optimization for rendering loops.",
+                        "Applied vector calculus for realistic light/shadow simulation."
+                    ],
+                    icon: "fa-cube"
+                },
+                {
+                    id: 2,
+                    title: "Real-time Collaborative Platform",
+                    category: "web",
+                    tech: ["Next.js", "WebSockets", "OAuth2"],
+                    summary: "Developed full-stack SPA with real-time data synchronization using WebSocket architecture.",
+                    details: [
+                        "Integrated asynchronous task processing for scalable operations.",
+                        "Implemented secure OAuth2 authentication flow.",
+                        "Designed for high-concurrency user collaboration."
+                    ],
+                    icon: "fa-users"
+                },
+                {
+                    id: 3,
+                    title: "Minishell: POSIX Shell",
+                    category: "systems",
+                    tech: ["C", "SysCalls", "Process Mgmt"],
+                    summary: "Engineered a POSIX-compliant shell interpreter with complex process management logic.",
+                    details: [
+                        "Managed fork/exec and IPC mechanisms.",
+                        "Developed robust error handling and signal management.",
+                        "Deep dive into hardware-software boundaries."
+                    ],
+                    icon: "fa-terminal"
+                },
+                {
+                    id: 4,
+                    title: "FDF: 3D Visualization",
+                    category: "systems",
+                    tech: ["C", "Matrix Math", "Optimization"],
+                    summary: "Created high-performance 3D visualizer for complex topographic data rendering.",
+                    details: [
+                        "Leveraged matrix transformations for real-time visualization.",
+                        "Optimized rendering loops for smooth performance.",
+                        "Applied computational geometry principles."
+                    ],
+                    icon: "fa-project-diagram"
+                }
+            ]
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderProjects('all');
+            initRadarChart();
+            initBarChart();
+        });
+
+        // 1. Radar Chart: Skill Balance
+        function initRadarChart() {
+            const ctx = document.getElementById('skillsRadarChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Systems (C/C++)', 'Algorithms', 'Backend/DB', 'Frontend/Web', 'DevOps/Infra', 'Security'],
+                    datasets: [{
+                        label: 'Skill Proficiency',
+                        data: [95, 90, 85, 80, 75, 70],
+                        backgroundColor: 'rgba(234, 88, 12, 0.2)',
+                        borderColor: 'rgba(234, 88, 12, 1)',
+                        pointBackgroundColor: 'rgba(234, 88, 12, 1)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgba(234, 88, 12, 1)'
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: '#e7e5e4' },
+                            grid: { color: '#e7e5e4' },
+                            pointLabels: {
+                                font: { size: 12, family: 'Inter' },
+                                color: '#44403c'
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 100
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // 2. Bar Chart: Languages
+        function initBarChart() {
+            const ctx = document.getElementById('languagesBarChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['C/C++', 'Python', 'SQL', 'TypeScript', 'Shell'],
+                    datasets: [{
+                        label: 'Proficiency Level',
+                        data: [95, 90, 80, 75, 85],
+                        backgroundColor: [
+                            '#1c1917',
+                            '#ea580c',
+                            '#57534e',
+                            '#78716c',
+                            '#a8a29e'
+                        ],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            display: false
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { family: 'Inter', weight: '600' },
+                                color: '#292524'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.raw + '% Proficiency';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Project Rendering & Filtering Logic
+        function renderProjects(filter) {
+            const grid = document.getElementById('projects-grid');
+            grid.innerHTML = '';
+
+            const projectsToShow = filter === 'all' 
+                ? portfolioData.projects 
+                : portfolioData.projects.filter(p => p.category === filter);
+
+            projectsToShow.forEach(project => {
+                const techTags = project.tech.map(t => 
+                    `<span class="inline-block bg-stone-100 rounded-full px-3 py-1 text-xs font-semibold text-stone-600 mr-2 mb-2">#${t}</span>`
+                ).join('');
+
+                const detailsList = project.details.map(d => 
+                    `<li class="text-sm text-stone-500 mb-1"><i class="fas fa-check text-orange-500 mr-2 text-xs"></i>${d}</li>`
+                ).join('');
+
+                const card = `
+                    <div class="project-card bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden flex flex-col h-full">
+                        <div class="p-6 flex-1">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-10 h-10 rounded-full bg-stone-900 flex items-center justify-center text-white">
+                                    <i class="fas ${project.icon}"></i>
+                                </div>
+                                <span class="text-xs font-bold uppercase tracking-wider ${project.category === 'systems' ? 'text-stone-500' : 'text-orange-600'}">
+                                    ${project.category === 'systems' ? 'Systems Eng' : 'Fullstack Web'}
+                                </span>
+                            </div>
+                            <h3 class="text-xl font-bold text-stone-900 mb-2">${project.title}</h3>
+                            <p class="text-stone-600 text-sm mb-4">${project.summary}</p>
+                            
+                            <div class="mb-4">
+                                ${techTags}
+                            </div>
+                            
+                            <div class="bg-stone-50 p-3 rounded-lg border border-stone-100">
+                                <ul class="list-none">
+                                    ${detailsList}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.innerHTML += card;
+            });
+            
+            // Update button states
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if(btn.textContent.toLowerCase().includes(filter === 'all' ? 'all' : filter)) {
+                    btn.classList.remove('bg-white', 'text-stone-600');
+                    btn.classList.add('bg-stone-800', 'text-white');
+                } else {
+                    btn.classList.add('bg-white', 'text-stone-600');
+                    btn.classList.remove('bg-stone-800', 'text-white');
+                }
+            });
+        }
+
+        function filterProjects(category) {
+            renderProjects(category);
+        }
+
+    </script>
+</body>
+</html>
