@@ -45,7 +45,7 @@ h1 {
 }
 
 .author {
-    font-size: clamp(0.9rem, 2vw, 1.1rem);
+    font-size: clamp(0.9rem, 2vw, 1.3rem);
     font-weight: 300;
     color: rgba(232, 228, 201, 0.5);
     margin-top: 3rem;
@@ -60,9 +60,9 @@ h1 {
 }
 
 .links a {
-    color: rgba(232, 228, 201, 0.6);
+    color: rgba(240, 236, 209, 0.7);
     text-decoration: none;
-    font-size: 0.95rem;
+    font-size: 1.1rem;
     font-weight: 300;
     transition: color 0.2s ease, transform 0.2s ease;
     position: relative;
@@ -70,6 +70,6 @@ h1 {
 }
 
 .links a:hover {
-    color: #e8e4c9;
-    transform: translateY(-2px);
+    color: #ffffff;
+    transform: translateY(-3px);
 }
