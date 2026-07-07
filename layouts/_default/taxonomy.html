@@ -1,0 +1,12 @@
+{{ define "main" }}
+<div class="page-container">
+  <div class="section-header">
+    <h1>Tags</h1>
+  </div>
+  <div class="filter-bar">
+    {{ range .Pages }}
+    <a href="{{ .Permalink }}" class="filter-btn">{{ .Title }} ({{ len .Pages }})</a>
+    {{ end }}
+  </div>
+</div>
+{{ end }}

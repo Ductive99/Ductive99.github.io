@@ -1,0 +1,65 @@
+{{ define "main" }}
+<div class="page-container">
+
+  <div class="section-header">
+    <h1>Library</h1>
+    {{ $books := .Site.Data.books }}
+    {{ with $books }}
+    <span class="section-count">{{ len . }} books</span>
+    {{ end }}
+  </div>
+
+  <!-- Category Filter Bar -->
+  {{ $allCats := slice }}
+  {{ range .Site.Data.books }}
+    {{ range .categories }}
+      {{ $allCats = $allCats | append . }}
+    {{ end }}
+  {{ end }}
+  {{ $uniqueCats := uniq $allCats }}
+
+  {{ if $uniqueCats }}
+  <div class="filter-bar" id="book-filters">
+    <button class="filter-btn active" data-category="all">All</button>
+    {{ range $uniqueCats }}
+    <button class="filter-btn" data-category="{{ . }}">{{ . }}</button>
+    {{ end }}
+  </div>
+  {{ end }}
+
+  <!-- Books Grid -->
+  <div class="books-grid">
+    {{ range .Site.Data.books }}
+    <article class="book-card" data-categories="{{ delimit .categories "," }}" data-hidden="false">
+      {{ with .cover }}
+      <img class="book-cover" src="{{ . }}" alt="Book cover" loading="lazy">
+      {{ end }}
+      <div class="book-card-body">
+        <h3 class="book-title">{{ .title }}</h3>
+        {{ with .author }}
+        <p class="book-author">{{ . }}</p>
+        {{ end }}
+        {{ with .rating }}
+        <div class="book-rating">
+          {{ $r := int . }}
+          {{ range seq $r }}★{{ end }}{{ $empty := sub 5 $r }}{{ range seq $empty }}☆{{ end }}
+          <span style="margin-left:0.25rem; color: var(--text-muted); font-size:0.75rem;">{{ . }}/5</span>
+        </div>
+        {{ end }}
+        {{ with .review }}
+        <p class="book-review">{{ . }}</p>
+        {{ end }}
+        {{ with .categories }}
+        <div class="book-categories">
+          {{ range . }}
+          <span class="book-category-tag">{{ . }}</span>
+          {{ end }}
+        </div>
+        {{ end }}
+      </div>
+    </article>
+    {{ end }}
+  </div>
+
+</div>
+{{ end }}

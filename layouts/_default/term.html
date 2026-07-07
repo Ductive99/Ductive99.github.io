@@ -1,0 +1,28 @@
+{{ define "main" }}
+<div class="page-container">
+  <div class="section-header">
+    <h1>{{ .Title }}</h1>
+    <span class="section-count">{{ len .Pages }} posts</span>
+  </div>
+  <ul class="blog-list">
+    {{ range .Pages }}
+    <li class="blog-post-item">
+      <div class="blog-post-meta">
+        <span class="blog-post-date">{{ .Date.Format "Jan 02, 2006" }}</span>
+        {{ with .Params.tags }}
+        <div class="blog-post-tags">
+          {{ range . }}
+          <span class="blog-tag">{{ . }}</span>
+          {{ end }}
+        </div>
+        {{ end }}
+      </div>
+      <h2 class="blog-post-title"><a href="{{ .Permalink }}">{{ .Title }}</a></h2>
+      {{ with .Summary }}
+      <p class="blog-post-summary">{{ . }}</p>
+      {{ end }}
+    </li>
+    {{ end }}
+  </ul>
+</div>
+{{ end }}

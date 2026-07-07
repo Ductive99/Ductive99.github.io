@@ -1,0 +1,41 @@
+{{ define "main" }}
+<div class="page-container">
+
+  <article>
+    <header class="post-header">
+      <div class="blog-post-meta">
+        <span class="blog-post-date">{{ .Date.Format "Jan 02, 2006" }}</span>
+        {{ with .Params.tags }}
+        <div class="blog-post-tags">
+          {{ range . }}
+          <span class="blog-tag">{{ . }}</span>
+          {{ end }}
+        </div>
+        {{ end }}
+      </div>
+      <h1 class="hero-title" style="margin-top: 0.75rem;">{{ .Title }}</h1>
+      {{ with .Params.description }}
+      <p class="hero-description">{{ . }}</p>
+      {{ end }}
+    </header>
+
+    <div class="post-content">
+      {{ .Content }}
+    </div>
+  </article>
+
+  <hr>
+
+  <nav style="display:flex; justify-content:space-between; font-family:var(--font-heading); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">
+    {{ with .PrevInSection }}
+    <a href="{{ .Permalink }}">&larr; {{ .Title }}</a>
+    {{ else }}
+    <span></span>
+    {{ end }}
+    {{ with .NextInSection }}
+    <a href="{{ .Permalink }}">{{ .Title }} &rarr;</a>
+    {{ end }}
+  </nav>
+
+</div>
+{{ end }}

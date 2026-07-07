@@ -1,0 +1,21 @@
+# To add a new project, simply add a new entry to this list.
+# Fields:
+#   title       (required) - Project name
+#   description (required) - Short description
+#   image       (optional) - Path to image in /images/projects/
+#   links       (optional) - List of {label, url} pairs
+
+- title: "Example Project"
+  description: "A short description of what this project does and the technologies used."
+  image: "/images/projects/placeholder.svg"
+  links:
+    - label: "GitHub"
+      url: "https://github.com/ductive99"
+    - label: "Blog Post"
+      url: "/blog/"
+
+- title: "Another Project"
+  description: "Built with C at 42Paris. A systems programming project exploring low-level concepts."
+  links:
+    - label: "GitHub"
+      url: "https://github.com/ductive99"

@@ -1,0 +1,50 @@
+{{ define "main" }}
+<div class="page-container">
+
+  <div class="section-header">
+    <h1>Blog</h1>
+    <span class="section-count">{{ len .Pages }} posts</span>
+  </div>
+
+  <!-- Tag Filter Bar -->
+  {{ $allTags := slice }}
+  {{ range .Pages }}
+    {{ range .Params.tags }}
+      {{ $allTags = $allTags | append . }}
+    {{ end }}
+  {{ end }}
+  {{ $uniqueTags := uniq $allTags }}
+
+  {{ if $uniqueTags }}
+  <div class="filter-bar" id="blog-tag-filters">
+    <button class="filter-btn active" data-tag="all">All</button>
+    {{ range $uniqueTags }}
+    <button class="filter-btn" data-tag="{{ . }}">{{ . }}</button>
+    {{ end }}
+  </div>
+  {{ end }}
+
+  <!-- Blog Post List -->
+  <ul class="blog-list">
+    {{ range .Pages }}
+    <li class="blog-post-item" data-tags="{{ delimit .Params.tags "," }}">
+      <div class="blog-post-meta">
+        <span class="blog-post-date">{{ .Date.Format "Jan 02, 2006" }}</span>
+        {{ with .Params.tags }}
+        <div class="blog-post-tags">
+          {{ range . }}
+          <span class="blog-tag">{{ . }}</span>
+          {{ end }}
+        </div>
+        {{ end }}
+      </div>
+      <h2 class="blog-post-title"><a href="{{ .Permalink }}">{{ .Title }}</a></h2>
+      {{ with .Params.description }}
+      <p class="blog-post-summary">{{ . }}</p>
+      {{ end }}
+    </li>
+    {{ end }}
+  </ul>
+
+</div>
+{{ end }}

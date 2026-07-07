@@ -1,0 +1,16 @@
+{{- /* Obsidian blockquote/callout render hook */ -}}
+{{- $alert := .AlertType -}}
+{{- $icon := "" -}}
+{{- if eq $alert "note" }}{{ $icon = "ℹ" }}{{ end -}}
+{{- if eq $alert "tip" }}{{ $icon = "💡" }}{{ end -}}
+{{- if eq $alert "warning" }}{{ $icon = "⚠" }}{{ end -}}
+{{- if eq $alert "caution" }}{{ $icon = "🔴" }}{{ end -}}
+{{- if eq $alert "important" }}{{ $icon = "❗" }}{{ end -}}
+{{ if $alert }}
+<div class="callout callout-{{ $alert }}">
+  <div class="callout-title">{{ $icon }} {{ $alert }}</div>
+  <div class="callout-content">{{ .Text }}</div>
+</div>
+{{- else -}}
+<blockquote>{{ .Text }}</blockquote>
+{{- end -}}

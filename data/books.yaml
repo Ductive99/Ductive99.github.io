@@ -1,0 +1,32 @@
+# To add a new book, add a new entry to this list.
+# Fields:
+#   title      (required) - Book title
+#   author     (optional) - Author name
+#   cover      (optional) - Path to cover image in /images/books/
+#   rating     (optional) - Rating out of 5 (integer)
+#   review     (optional) - Short review/description
+#   categories (optional) - List of category strings for filtering
+
+- title: "The Pragmatic Programmer"
+  author: "David Thomas & Andrew Hunt"
+  cover: "/images/books/placeholder.svg"
+  rating: 5
+  review: "A timeless guide to becoming a better developer. Essential reading."
+  categories:
+    - "Software Engineering"
+    - "Career"
+
+- title: "Designing Data-Intensive Applications"
+  author: "Martin Kleppmann"
+  rating: 5
+  review: "The definitive guide to distributed systems and modern data architecture."
+  categories:
+    - "Software Engineering"
+    - "Systems"
+
+- title: "Meditations"
+  author: "Marcus Aurelius"
+  rating: 4
+  review: "Stoic philosophy distilled into practical wisdom for daily life."
+  categories:
+    - "Philosophy"
