@@ -5,17 +5,38 @@
 #   image       (optional) - Path to image in /images/projects/
 #   links       (optional) - List of {label, url} pairs
 
-- title: "Example Project"
-  description: "A short description of what this project does and the technologies used."
-  image: "/images/projects/placeholder.svg"
-  links:
-    - label: "GitHub"
-      url: "https://github.com/ductive99"
-    - label: "Blog Post"
-      url: "/blog/"
 
-- title: "Another Project"
-  description: "Built with C at 42Paris. A systems programming project exploring low-level concepts."
+- title: "IRC Server"
+  image: "/images/projects/irssi.png"
+  description: "IRC server using the C++98 standard."
   links:
     - label: "GitHub"
-      url: "https://github.com/ductive99"
+      url: "https://github.com/Marr1one/ft_irc"
+
+- title: "Wireframe viewer"
+  description: "3D wireframe renderer, built with C. It visualizes terrain maps, with camera controls, multiple projections, and animation."
+  image: "/images/projects/fdf.png"
+  links:
+    - label: "GitHub"
+      url: "https://github.com/ductive99/FdF"
+    # - label: "Blog Post"
+    #   url: "/blog/"
+
+- title: "Ray Tracer"
+  image: "/images/projects/raytracing_v1.png"
+  description: "A fully functional ray tracer written in C from scratch as part of the 42 curriculum. Renders 3D scenes with realistic lighting, shadows, and interactive object manipulation."
+  links:
+    - label: "GitHub"
+      url: "https://github.com/ductive99/raytracing_v1"
+
+
+- title: "Fractal Viewer"
+  image: "/images/projects/mandelbrot-fractal-zoomed.png"
+  description: "A compact, interactive Mandelbrot and Julia set viewer implemented in C using MiniLibX. It is intended for learning and exploring complex-plane rendering."
+  links:
+    - label: "GitHub"
+      url: "https://github.com/ductive99/fractals"
+
+
+
+# A compact, interactive Mandelbrot and Julia set viewer implemented in C using MiniLibX. It is intended for learning and exploring complex-plane rendering and color interpolation while remaining small and easy to read.
