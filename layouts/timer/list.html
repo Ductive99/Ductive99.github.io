@@ -1,0 +1,54 @@
+{{ define "main" }}
+<div class="page-container">
+
+  <div class="section-header">
+    <h1>Timer</h1>
+    <span class="section-count" id="total-today">0h 0m today</span>
+  </div>
+
+  <!-- Active Timer Banner -->
+  <div class="tt-active-banner" id="active-banner" style="display:none;">
+    <span class="tt-active-dot" id="active-dot"></span>
+    <span class="tt-active-name" id="active-name"></span>
+    <span class="tt-active-clock" id="active-clock">00:00:00</span>
+    <button class="timer-btn tt-active-playpause" id="active-playpause" title="Pause">&#10074;&#10074;</button>
+    <button class="timer-btn tt-active-stop" id="active-stop" title="Stop">&#9632;</button>
+  </div>
+
+  <!-- Project Panel -->
+  <section class="tt-panel" id="project-panel"></section>
+
+
+
+  <div class="commodore-stripe" style="margin: 2rem 0;" aria-hidden="true"></div>
+
+  <!-- Timer Controls Toolbar -->
+  <div class="timer-toolbar">
+    <!-- View Toggle -->
+    <div class="timer-view-toggle">
+      <button class="filter-btn active" data-view="daily" id="view-daily">Daily</button>
+      <button class="filter-btn" data-view="weekly" id="view-weekly">Weekly</button>
+      <button class="filter-btn" data-view="monthly" id="view-monthly">Monthly</button>
+    </div>
+
+    <!-- Calendar Navigation & Total -->
+    <div class="timer-toolbar-bottom">
+      <div class="tt-day-summary">
+        Total: <strong id="view-total">0h 0m</strong>
+      </div>
+      <div class="tt-cal-nav" id="cal-nav">
+        <button class="timer-btn-sm" id="cal-today">Today</button>
+        <button class="timer-btn-sm tt-btn-icon" id="cal-prev" title="Previous">&lt;</button>
+        <button class="timer-btn-sm tt-btn-icon" id="cal-next" title="Next">&gt;</button>
+        <span class="tt-cal-label" id="cal-label"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calendar View -->
+  <div id="calendar-view"></div>
+
+</div>
+
+<script src="/js/timer.js" defer></script>
+{{ end }}

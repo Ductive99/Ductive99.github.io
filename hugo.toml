@@ -48,3 +48,7 @@ title = "El Houssain Souhail"
     name = "Library"
     url = "/library/"
     weight = 3
+  [[menu.main]]
+    name = "Timer"
+    url = "/timer/"
+    weight = 4

@@ -729,6 +729,279 @@ p { margin-bottom: 1rem; }
 }
 
 /* ============================================
+   TIMER PAGE
+   ============================================ */
+
+/* Active Banner */
+.tt-active-banner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem 2rem;
+  border: 4px solid var(--accent-green);
+  background: var(--card-bg);
+  margin-bottom: 2rem;
+  animation: tt-pulse 2s ease-in-out infinite;
+}
+@keyframes tt-pulse {
+  0%, 100% { border-color: var(--accent-green); }
+  50% { border-color: var(--accent-yellow); }
+}
+.tt-active-dot { width: 24px; height: 24px; flex-shrink: 0; }
+.tt-active-name {
+  font-family: var(--font-heading); font-weight: 900; font-size: 1.5rem;
+  text-transform: uppercase; letter-spacing: 0.03em; flex: 1;
+}
+.tt-active-clock {
+  font-family: var(--font-mono); font-size: 3rem; font-weight: 700; letter-spacing: 0.05em;
+}
+.tt-active-stop {
+  font-size: 1.5rem; width: 64px; height: 64px; border-width: 3px;
+  color: var(--accent-red) !important;
+}
+
+/* Project Panel */
+.tt-panel { margin-bottom: 1rem; }
+
+.tt-project {
+  border: 2px solid var(--border-color);
+  margin-bottom: -2px;
+  background: var(--card-bg);
+  transition: background var(--transition);
+}
+.tt-project.tt-drag-over {
+  border-top: 3px dashed var(--accent-green);
+  z-index: 10;
+  position: relative;
+}
+.tt-row-sub.tt-drag-over {
+  border-top: 2px dashed var(--accent-green);
+}
+
+.tt-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  font-family: var(--font-heading); font-size: 0.8rem;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  transition: background var(--transition);
+}
+.tt-row:hover { background: var(--bg-surface); }
+.tt-row-active { background: var(--bg-surface); }
+
+.tt-row-sub { border-top: 1px solid var(--border-color); }
+.tt-sub-indent { width: 1.25rem; flex-shrink: 0; }
+.tt-dot-sm { width: 8px !important; height: 8px !important; }
+
+.tt-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-row-clock {
+  font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700;
+  min-width: 70px; text-align: right; color: var(--accent-green);
+}
+
+.tt-row-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.9rem; padding: 0.2rem 0.35rem;
+  color: var(--text-muted); transition: color var(--transition);
+  line-height: 1;
+}
+.tt-row-btn:hover { color: var(--text-main); }
+.tt-btn-play { color: var(--accent-green); }
+.tt-btn-play:hover { color: var(--accent-green); opacity: 0.8; }
+.tt-btn-stop { color: var(--accent-red); }
+.tt-btn-danger:hover { color: var(--accent-red); }
+.tt-btn-gear { font-weight: 900; font-family: var(--font-heading); }
+
+.tt-subs { }
+.tt-hidden { display: none; }
+
+/* Shared form styles (reuse existing) */
+.timer-details {
+  border: 2px solid var(--border-color); background: var(--card-bg);
+  transition: background var(--transition);
+}
+.timer-summary {
+  font-family: var(--font-heading); font-weight: 900; font-size: 0.85rem;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 1rem 1.25rem; cursor: pointer; user-select: none;
+}
+.timer-summary:hover { background: var(--bg-surface); }
+.timer-manager-content { padding: 0 1.25rem 1.25rem; }
+.timer-form-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+.timer-input {
+  font-family: var(--font-heading); font-size: 0.8rem;
+  padding: 0.5rem 0.75rem; border: 2px solid var(--border-color);
+  background: var(--bg-paper); color: var(--text-main); flex: 1;
+}
+.timer-input::placeholder { color: var(--text-muted); }
+.timer-color { width: 40px; height: 38px; border: 2px solid var(--border-color); padding: 2px; cursor: pointer; background: none; }
+.timer-btn-sm {
+  font-family: var(--font-heading); font-weight: 700; font-size: 0.75rem;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 0.5rem 1rem; border: 2px solid var(--border-color);
+  background: none; color: var(--text-main); cursor: pointer; white-space: nowrap;
+  transition: background var(--transition), color var(--transition);
+}
+.timer-btn-sm:hover { background: var(--text-main); color: var(--bg-paper); }
+.timer-project-dot { width: 12px; height: 12px; flex-shrink: 0; display: inline-block; }
+
+/* Toolbar Container */
+.timer-toolbar {
+  display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2rem;
+}
+
+/* View Toggle */
+.timer-view-toggle { display: flex; gap: 0.5rem; justify-content: center; }
+
+/* Bottom Toolbar */
+.timer-toolbar-bottom {
+  display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1rem;
+}
+
+/* Calendar Nav */
+.tt-cal-nav {
+  display: flex; align-items: center; gap: 0.5rem;
+}
+
+/* Day Summary (Total) */
+.tt-day-summary {
+  font-family: var(--font-heading); font-size: 1rem; text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.tt-btn-icon {
+  padding: 0.35rem 0.5rem; font-size: 1rem; width: 36px;
+}
+.tt-cal-label {
+  font-family: var(--font-heading); font-weight: 900; font-size: 1rem;
+  text-transform: uppercase; letter-spacing: -0.02em; padding: 0 0.5rem; text-align: left;
+}
+
+/* === DAILY TIMELINE === */
+.tt-timeline { display: flex; flex-direction: column; }
+.tt-hour-row { display: flex; align-items: center; gap: 0.5rem; height: 40px; }
+.tt-hour-label {
+  font-family: var(--font-mono); font-size: 0.7rem; width: 40px;
+  text-align: right; color: var(--text-muted); flex-shrink: 0;
+}
+.tt-hour-track {
+  flex: 1; height: 32px; position: relative;
+  background: var(--bg-surface); border: 1px solid var(--border-color);
+}
+.tt-hour-block {
+  position: absolute; top: 0; height: 100%;
+  min-width: 2px;
+}
+
+/* === WEEKLY COLUMNS === */
+.tt-week-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+}
+.tt-week-col {
+  display: flex; flex-direction: column; align-items: center;
+  border: 2px solid var(--border-color); padding: 0.5rem 0.25rem;
+  background: var(--card-bg); transition: background var(--transition);
+}
+.tt-week-today { border-color: var(--accent-blue); border-width: 3px; }
+.tt-week-day {
+  font-family: var(--font-heading); font-weight: 900; font-size: 0.65rem;
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.1rem;
+}
+.tt-week-date {
+  font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;
+}
+.tt-week-bar-container {
+  width: 100%; flex: 1; min-height: 180px; display: flex;
+  align-items: flex-end; justify-content: center;
+}
+.tt-week-bar {
+  width: 70%; display: flex; flex-direction: column-reverse;
+  border: 1px solid var(--border-color); overflow: hidden;
+}
+.tt-week-bar-seg { width: 100%; min-height: 3px; }
+.tt-week-total {
+  font-family: var(--font-mono); font-size: 0.65rem; font-weight: 700;
+  color: var(--text-muted); margin-top: 0.5rem; text-align: center;
+}
+
+/* === MONTHLY CALENDAR === */
+.tt-month-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+}
+.tt-month-header {
+  font-family: var(--font-heading); font-weight: 900; font-size: 0.65rem;
+  text-transform: uppercase; letter-spacing: 0.05em; text-align: center;
+  padding: 0.5rem 0; border-bottom: 3px solid var(--border-color);
+}
+.tt-month-cell {
+  position: relative; min-height: 70px; padding: 0.35rem;
+  border: 1px solid var(--border-color); background: var(--card-bg);
+  overflow: hidden; transition: background var(--transition);
+}
+.tt-month-empty { background: var(--bg-surface); opacity: 0.3; }
+.tt-month-today { border: 3px solid var(--accent-blue); }
+.tt-month-day-num {
+  font-family: var(--font-mono); font-size: 0.7rem; font-weight: 700;
+  display: block; margin-bottom: 0.2rem;
+}
+.tt-month-dots { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 0.15rem; }
+.tt-month-dot { width: 6px; height: 6px; display: inline-block; flex-shrink: 0; }
+.tt-month-time {
+  font-family: var(--font-mono); font-size: 0.55rem; font-weight: 700;
+  color: var(--text-muted); display: block;
+}
+.tt-month-heat {
+  position: absolute; inset: 0; background: var(--accent-green);
+  pointer-events: none; z-index: 0;
+}
+.tt-month-cell > *:not(.tt-month-heat) { position: relative; z-index: 1; }
+
+/* Session list */
+.timer-session-list { list-style: none; padding: 0; margin: 0.5rem 0 0; }
+.timer-session-item {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.8rem;
+}
+.timer-session-item:last-child { border-bottom: none; }
+.timer-session-name {
+  font-family: var(--font-heading); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.03em; flex: 1;
+}
+.timer-session-time { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); }
+.timer-session-dur { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; min-width: 60px; text-align: right; }
+.timer-btn-icon {
+  background: none; border: none; cursor: pointer; font-size: 1rem;
+  color: var(--text-muted); padding: 0.2rem 0.4rem; transition: color var(--transition);
+}
+.timer-btn-icon:hover { color: var(--text-main); }
+.timer-btn-danger:hover { color: var(--accent-red); }
+
+/* Timer button (reused) */
+.timer-btn {
+  font-family: var(--font-heading); font-size: 1.2rem;
+  width: 44px; height: 44px; border: 2px solid var(--border-color);
+  background: none; color: var(--text-main); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--transition), color var(--transition);
+}
+.timer-btn:hover:not(:disabled) { background: var(--text-main); color: var(--bg-paper); }
+.timer-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+@media (max-width: 700px) {
+  .tt-week-grid { grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .tt-week-bar-container { min-height: 80px; }
+  .tt-week-day { font-size: 0.55rem; }
+  .tt-week-total { font-size: 0.55rem; }
+  .tt-month-cell { min-height: 50px; }
+  .tt-month-time { font-size: 0.5rem; }
+  .tt-cal-nav { font-size: 0.75rem; }
+  .tt-active-clock { font-size: 1rem; }
+  .tt-row { padding: 0.5rem 0.75rem; font-size: 0.7rem; }
+}
+
+
+
+/* ============================================
    HR DIVIDER
    ============================================ */
 hr {
