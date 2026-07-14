@@ -18,6 +18,9 @@
   <!-- Project Panel -->
   <section class="tt-panel" id="project-panel"></section>
 
+  <!-- Last Session Trim -->
+  <div class="tt-lastsess" id="last-session-trim" style="display:none;"></div>
+
 
 
   <div class="commodore-stripe" style="margin: 2rem 0;" aria-hidden="true"></div>
@@ -33,8 +36,9 @@
 
     <!-- Calendar Navigation & Total -->
     <div class="timer-toolbar-bottom">
-      <div class="tt-day-summary">
-        Total: <strong id="view-total">0h 0m</strong>
+      <div class="tt-day-summary" style="display: flex; gap: 1rem; align-items: center;">
+        <span>Total: <strong id="view-total">0h 0m</strong></span>
+        <button class="timer-btn-sm" id="btn-share-insights" style="display:none;">Share Insights</button>
       </div>
       <div class="tt-cal-nav" id="cal-nav">
         <button class="timer-btn-sm" id="cal-today">Today</button>
@@ -47,6 +51,29 @@
 
   <!-- Calendar View -->
   <div id="calendar-view"></div>
+
+  <!-- Insights Modal -->
+  <div id="insights-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center; flex-direction:column;">
+    <div style="background:#1A1A1A; color:#F4F4F4; padding:2rem; border:4px solid #F4F4F4; position:relative; min-width: 350px; max-width:90vw; max-height:90vh; overflow:auto; box-shadow: 8px 8px 0 rgba(0,0,0,0.5);">
+      <button id="insights-close" style="position:absolute; top:0.5rem; right:0.5rem; background:transparent; border:none; color:#F4F4F4; font-size:1.5rem; cursor:pointer;">&times;</button>
+      <h2 style="font-family:var(--font-heading); margin-top:0; margin-bottom:0.5rem; text-transform:uppercase; font-size:1.8rem; letter-spacing: -0.03em;">Your Insights</h2>
+      <p style="font-family:var(--font-mono); font-size:0.85rem; color:#A0A0A0; margin-bottom:1.5rem;">Long-press or right-click the image below to save/share, or use the download button.</p>
+
+      <div style="margin-bottom: 1.5rem; text-align: center;">
+        <button id="insights-legend-btn" style="font-family: var(--font-heading); font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.4rem 0.9rem; border: 2px solid #F4F4F4; background: #F4F4F4; color: #1A1A1A; cursor: pointer; transition: all 0.2s ease; white-space: nowrap;">
+          &#9745; INCLUDE PROJECT LEGEND
+        </button>
+      </div>
+
+      <div id="insights-img-container" style="text-align:center; margin-bottom:1.5rem; border:2px solid #F4F4F4; background:#000; padding: 0.5rem;"></div>
+
+      <div style="text-align:center;">
+        <a id="insights-download-btn" download="timer-insights.png" style="font-family: var(--font-heading); font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; text-decoration:none; display:inline-block; background:var(--accent-green); color:#FFF; font-size: 1rem; padding: 0.75rem 2rem; border: 2px solid #FFF; box-shadow: 4px 4px 0 #FFF; cursor:pointer; transition: opacity 0.2s ease;">
+          DOWNLOAD IMAGE
+        </a>
+      </div>
+    </div>
+  </div>
 
 </div>
 

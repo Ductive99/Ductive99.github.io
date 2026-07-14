@@ -21,6 +21,9 @@
   var deletingId = null;
   var editingId = null;
   var draggedItem = null;
+  var lastSession = null; // for post-stop trimming UI
+  var selectedId = null;
+  var deletingSessionId = null;
 
   // --- DOM ---
   var $panel = document.getElementById('project-panel');
@@ -43,11 +46,7 @@
     var m = Math.floor(s / 60); s %= 60;
     return pad(h) + ':' + pad(m) + ':' + pad(s);
   }
-  function fmtTime(ms) {
-    var s = Math.floor(ms / 1000); var h = Math.floor(s / 3600); s %= 3600;
-    var m = Math.floor(s / 60);
-    return pad(h) + ':' + pad(m);
-  }
+
   function fmtShort(ms) {
     var s = Math.floor(ms / 1000); var h = Math.floor(s / 3600); s %= 3600;
     var m = Math.floor(s / 60);
@@ -58,9 +57,37 @@
   function getProj(id) { return projects.find(function (p) { return p.id === id; }); }
   function getSub(proj, sid) { return proj && proj.subs ? proj.subs.find(function (s) { return s.id === sid; }) : null; }
 
+  // Split a session across midnight boundaries so each day gets its portion
+  function splitSessionByDay(s) {
+    var parts = [];
+    var cur = new Date(s.start);
+    var end = new Date(s.end);
+    while (cur < end) {
+      var nextMidnight = new Date(cur);
+      nextMidnight.setHours(24, 0, 0, 0);
+      var segEnd = nextMidnight < end ? nextMidnight.getTime() : s.end;
+      parts.push({ id: s.id, projectId: s.projectId, subprojectId: s.subprojectId, start: cur.getTime(), end: segEnd, duration: segEnd - cur.getTime(), pauseLog: s.pauseLog || [] });
+      cur = nextMidnight;
+    }
+    return parts;
+  }
+
+  // Get all session segments that fall on a specific day key
+  function getSessionsForDay(dayKey) {
+    var result = [];
+    sessions.forEach(function (s) {
+      var parts = splitSessionByDay(s);
+      parts.forEach(function (p) {
+        if (dk(new Date(p.start)) === dayKey) result.push(p);
+      });
+    });
+    return result;
+  }
+
   function todayTotal() {
     var key = dk(new Date()); var t = 0;
-    sessions.forEach(function (s) { if (dk(new Date(s.start)) === key) t += s.duration; });
+    var daySessions = getSessionsForDay(key);
+    daySessions.forEach(function (s) { t += s.duration; });
     if (active) {
       var activeDur = active.elapsed + (active.paused ? 0 : Date.now() - active.start);
       if (dk(new Date(active.initialStart)) === key) t += activeDur;
@@ -69,23 +96,34 @@
   }
 
   // --- Start / Stop ---
-  function startTimer(projId, subId) {
+  function startTimer(projId, subId, countdownMs) {
     if (active) stopTimer();
-    active = { projectId: projId, subprojectId: subId || null, initialStart: Date.now(), start: Date.now(), elapsed: 0, paused: false };
+    active = { projectId: projId, subprojectId: subId || null, initialStart: Date.now(), start: Date.now(), elapsed: 0, paused: false, pauseLog: [], countdownMs: countdownMs || null };
     save('tt_active', active);
+    lastSession = null;
+    selectedId = null;
     startTick();
     renderPanel();
     renderBanner();
+    renderLastSession();
   }
 
   function togglePause() {
     if (!active) return;
     if (active.paused) {
+      // Resuming: close the pause interval
+      if (active.pauseLog && active.pauseLog.length > 0) {
+        var last = active.pauseLog[active.pauseLog.length - 1];
+        if (!last.end) last.end = Date.now();
+      }
       active.start = Date.now();
       active.paused = false;
       startTick();
     } else {
+      // Pausing: open a new pause interval
       active.elapsed += Date.now() - active.start;
+      if (!active.pauseLog) active.pauseLog = [];
+      active.pauseLog.push({ start: Date.now(), end: null });
       active.start = null;
       active.paused = true;
       stopTick();
@@ -101,8 +139,13 @@
     var now = Date.now();
     var duration = active.elapsed + (active.paused ? 0 : now - active.start);
     var startTime = active.initialStart || (now - duration);
-    sessions.push({ id: uid(), projectId: active.projectId, subprojectId: active.subprojectId, start: startTime, end: now, duration: duration });
+    // Close any open pause interval
+    var pLog = (active.pauseLog || []).slice();
+    pLog.forEach(function(p) { if (!p.end) p.end = now; });
+    var newSession = { id: uid(), projectId: active.projectId, subprojectId: active.subprojectId, start: startTime, end: now, duration: duration, pauseLog: pLog };
+    sessions.push(newSession);
     save('tt_sessions', sessions);
+    lastSession = newSession;
     active = null;
     save('tt_active', active);
     stopTick();
@@ -110,6 +153,7 @@
     renderPanel();
     renderBanner();
     renderCalendar();
+    renderLastSession();
   }
 
   function startTick() { stopTick(); tick(); tickInterval = setInterval(tick, 1000); }
@@ -117,13 +161,60 @@
   function tick() {
     if (!active) { document.title = 'Timer'; return; }
     var el = active.elapsed + (active.paused ? 0 : Date.now() - active.start);
-    var formatted = fmtDur(el);
-    $activeClock.textContent = formatted;
-    document.title = fmtTime(el) + ' - Timer';
+    var formatted;
+    
+    if (active.countdownMs) {
+      var remaining = active.countdownMs - el;
+      if (remaining <= 0) {
+        remaining = 0;
+        if (!active.paused) {
+          // Gentle bird chirp alarm
+          try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            var now = ctx.currentTime;
+            
+            function chirp(time) {
+              var osc = ctx.createOscillator();
+              var gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(3500, time);
+              osc.frequency.exponentialRampToValueAtTime(1800, time + 0.15);
+              
+              gain.gain.setValueAtTime(0, time);
+              gain.gain.linearRampToValueAtTime(0.3, time + 0.02);
+              gain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
+              gain.gain.linearRampToValueAtTime(0, time + 0.15);
+              
+              osc.start(time);
+              osc.stop(time + 0.15);
+            }
+            
+            chirp(now);
+            chirp(now + 0.25);
+          } catch(e) {}
+          stopTimer();
+          return;
+        }
+      }
+      formatted = fmtDur(remaining);
+      document.title = fmtDur(remaining) + ' - Timer';
+    } else {
+      formatted = fmtDur(el);
+      document.title = fmtDur(el) + ' - Timer';
+    }
+    
+    if ($activeClock) $activeClock.textContent = formatted;
     // Update inline timer on the active row
     var row = document.querySelector('[data-timer-id="' + active.projectId + (active.subprojectId ? ':' + active.subprojectId : '') + '"]');
     if (row) { var t = row.querySelector('.tt-row-clock'); if (t) t.textContent = formatted; }
     $totalToday.textContent = fmtShort(todayTotal()) + ' today';
+    // Live update the daily view if viewing today
+    if (currentView === 'daily' && dk(viewDate) === dk(new Date())) {
+      renderDaily();
+    }
   }
 
   // --- Active Banner ---
@@ -170,7 +261,7 @@
         html += '<div class="tt-row" style="background: var(--accent-red); color: white; border-bottom: 2px solid var(--border-color);">';
         html += '<span style="flex:1; font-weight: bold; padding-left: 0.5rem;">Are you sure? This action is irreversible.</span>';
         html += '<button class="timer-btn-sm" style="background:white; color:var(--accent-red); margin-right: 0.5rem;" data-confirmdel="' + p.id + '">Yes, Delete</button>';
-        html += '<button class="timer-btn-sm" style="background:transparent; color:white; border: 1px solid white;" data-canceldel="1">Cancel</button>';
+        html += '<button class="timer-btn-sm" style="background:transparent; color:white; border: 1px solid white; margin-right: 0.5rem;" data-canceldel="1">Cancel</button>';
         html += '</div>';
       } else if (editingId === p.id) {
         html += '<div class="tt-row">';
@@ -180,12 +271,20 @@
         html += '<button class="timer-btn-sm" data-canceledit="1">&times;</button>';
         html += '</div>';
       } else {
-        html += '<div class="tt-row' + (isActive ? ' tt-row-active' : '') + '" data-timer-id="' + p.id + '">';
+        var isSelected = selectedId === p.id;
+        html += '<div class="tt-row tt-row-selectable' + (isActive ? ' tt-row-active' : '') + (isSelected ? ' tt-row-selected' : '') + '" data-timer-id="' + p.id + '" data-select="' + p.id + '" style="cursor:pointer;">';
         html += '<span class="timer-project-dot" style="background:' + p.color + '"></span>';
         html += '<span class="tt-row-name">' + esc(p.name) + '</span>';
         var el = active && active.projectId === p.id && !active.subprojectId ? 
           active.elapsed + (active.paused ? 0 : Date.now() - active.start) : 0;
-        html += '<span class="tt-row-clock">' + (isActive ? fmtDur(el) : '') + '</span>';
+        
+        // If it's a countdown, show remaining inline if active
+        if (isActive && active.countdownMs) {
+          var rem = active.countdownMs - el;
+          html += '<span class="tt-row-clock">' + fmtDur(rem > 0 ? rem : 0) + '</span>';
+        } else {
+          html += '<span class="tt-row-clock">' + (isActive ? fmtDur(el) : '') + '</span>';
+        }
 
         if (isActive) {
           if (active.paused) {
@@ -194,8 +293,6 @@
             html += '<button class="tt-row-btn tt-btn-pause" data-pause="1" style="color:var(--accent-yellow)" title="Pause">&#10074;&#10074;</button>';
           }
           html += '<button class="tt-row-btn tt-btn-stop" data-stop="1" title="Stop">&#9632;</button>';
-        } else {
-          html += '<button class="tt-row-btn tt-btn-play" data-play="' + p.id + '" title="Start">&#9654;</button>';
         }
 
         if (hasSubs) {
@@ -206,6 +303,17 @@
         html += '<button class="tt-row-btn tt-btn-gear" data-addsub="' + p.id + '" title="Add sub-project">+</button>';
         html += '<button class="tt-row-btn tt-btn-danger" data-del="' + p.id + '" title="Delete">&times;</button>';
         html += '</div>';
+
+        // Start controls if selected
+        if (isSelected && !isActive) {
+          html += '<div class="tt-start-panel">';
+          html += '<button class="timer-btn-sm" data-play="' + p.id + '">Start Stopwatch</button>';
+          html += '<span class="tt-start-or">OR</span>';
+          html += '<input type="number" id="countdown-' + p.id + '" class="timer-input tt-input-sm" value="25" min="1" max="999" style="width: 50px; text-align: center;">';
+          html += '<span style="font-family: var(--font-mono); font-size: 0.8rem; margin: 0 0.5rem 0 -0.25rem;">min</span>';
+          html += '<button class="timer-btn-sm" data-start-timer="' + p.id + '">Start Timer</button>';
+          html += '</div>';
+        }
       }
 
       // Sub-projects
@@ -220,7 +328,7 @@
             html += '<div class="tt-row" style="background: var(--accent-red); color: white; width: 100%; border: none;">';
             html += '<span style="flex:1; font-weight: bold; padding-left: 1.5rem; font-size: 0.85rem;">Are you sure?</span>';
             html += '<button class="timer-btn-sm" style="background:white; color:var(--accent-red); margin-right: 0.5rem;" data-confirmdelsub="' + p.id + ':' + s.id + '">Delete</button>';
-            html += '<button class="timer-btn-sm" style="background:transparent; color:white; border: 1px solid white;" data-canceldel="1">Cancel</button>';
+            html += '<button class="timer-btn-sm" style="background:transparent; color:white; border: 1px solid white; margin-right: 0.5rem;" data-canceldel="1">Cancel</button>';
             html += '</div>';
           } else if (editingId === p.id + ':' + s.id) {
             html += '<div class="tt-row" style="width:100%;">';
@@ -230,27 +338,45 @@
             html += '<button class="timer-btn-sm" data-canceledit="1">&times;</button>';
             html += '</div>';
           } else {
+            var subIdFull = p.id + ':' + s.id;
+            var isSubSelected = selectedId === subIdFull;
+            html += '<div class="tt-row tt-row-sub tt-row-selectable' + (subActive ? ' tt-row-active' : '') + (isSubSelected ? ' tt-row-selected' : '') + '" data-timer-id="' + subIdFull + '" draggable="true" data-drag-sub="' + subIdFull + '" data-select="' + subIdFull + '" style="cursor:pointer;">';
+            
             html += '<span class="tt-sub-indent"></span>';
             html += '<span class="timer-project-dot tt-dot-sm" style="background:' + p.color + '; opacity:0.6"></span>';
             html += '<span class="tt-row-name">' + esc(s.name) + '</span>';
             var elSub = active && active.projectId === p.id && active.subprojectId === s.id ? 
               active.elapsed + (active.paused ? 0 : Date.now() - active.start) : 0;
-            html += '<span class="tt-row-clock">' + (subActive ? fmtDur(elSub) : '') + '</span>';
+              
+            if (subActive && active.countdownMs) {
+              var remS = active.countdownMs - elSub;
+              html += '<span class="tt-row-clock">' + fmtDur(remS > 0 ? remS : 0) + '</span>';
+            } else {
+              html += '<span class="tt-row-clock">' + (subActive ? fmtDur(elSub) : '') + '</span>';
+            }
 
             if (subActive) {
               if (active.paused) {
-                html += '<button class="tt-row-btn tt-btn-play" data-playsub="' + p.id + ':' + s.id + '" title="Resume">&#9654;</button>';
+                html += '<button class="tt-row-btn tt-btn-play" data-playsub="' + subIdFull + '" title="Resume">&#9654;</button>';
               } else {
                 html += '<button class="tt-row-btn tt-btn-pause" data-pause="1" style="color:var(--accent-yellow)" title="Pause">&#10074;&#10074;</button>';
               }
               html += '<button class="tt-row-btn tt-btn-stop" data-stop="1" title="Stop">&#9632;</button>';
-            } else {
-              html += '<button class="tt-row-btn tt-btn-play" data-playsub="' + p.id + ':' + s.id + '" title="Start">&#9654;</button>';
             }
-            html += '<button class="tt-row-btn tt-btn-edit" data-editsub="' + p.id + ':' + s.id + '" title="Edit">&#x270E;&#xFE0E;</button>';
-            html += '<button class="tt-row-btn tt-btn-danger" data-delsub="' + p.id + ':' + s.id + '" title="Delete">&times;</button>';
+            html += '<button class="tt-row-btn tt-btn-edit" data-editsub="' + subIdFull + '" title="Edit">&#x270E;&#xFE0E;</button>';
+            html += '<button class="tt-row-btn tt-btn-danger" data-delsub="' + subIdFull + '" title="Delete">&times;</button>';
+            html += '</div>';
+
+            if (isSubSelected && !subActive) {
+              html += '<div class="tt-start-panel" style="padding-left: 2.5rem;">';
+              html += '<button class="timer-btn-sm" data-playsub="' + subIdFull + '">Start Stopwatch</button>';
+              html += '<span class="tt-start-or">OR</span>';
+              html += '<input type="number" id="countdown-' + p.id + '\\:' + s.id + '" class="timer-input tt-input-sm" value="25" min="1" max="999" style="width: 50px; text-align: center;">';
+              html += '<span style="font-family: var(--font-mono); font-size: 0.8rem; margin: 0 0.5rem 0 -0.25rem;">min</span>';
+              html += '<button class="timer-btn-sm" data-start-timer="' + subIdFull + '">Start Timer</button>';
+              html += '</div>';
+            }
           }
-          html += '</div>';
         });
         }
         
@@ -282,13 +408,24 @@
 
   // Panel event delegation
   $panel.addEventListener('click', function (e) {
+    if (e.target.tagName === 'INPUT') return;
+
+    // Selection logic
+    var sel = e.target.closest('[data-select]');
+    if (sel && !e.target.closest('.tt-row-btn') && !e.target.closest('input') && !e.target.closest('button')) {
+      var selId = sel.getAttribute('data-select');
+      selectedId = (selectedId === selId) ? null : selId;
+      renderPanel();
+      return;
+    }
+
     var btn = e.target.closest('[data-play]');
     if (btn) { 
       var playId = btn.getAttribute('data-play');
       if (active && active.projectId === playId && active.paused && !active.subprojectId) {
         togglePause();
       } else {
-        startTimer(playId, null); 
+        startTimer(playId, null, null); 
       }
       return; 
     }
@@ -299,9 +436,22 @@
       if (active && active.projectId === p[0] && active.subprojectId === p[1] && active.paused) {
         togglePause();
       } else {
-        startTimer(p[0], p[1]); 
+        startTimer(p[0], p[1], null); 
       }
       return; 
+    }
+
+    btn = e.target.closest('[data-start-timer]');
+    if (btn) {
+      var id = btn.getAttribute('data-start-timer');
+      var parts = id.split(':');
+      // Escape the colon for getElementById if there's a subproject
+      var inputId = 'countdown-' + (parts[1] ? parts[0] + '\\:' + parts[1] : parts[0]);
+      var input = document.getElementById(inputId) || document.querySelector('[id="' + 'countdown-' + id + '"]');
+      var mins = input ? parseInt(input.value) : 25;
+      if (isNaN(mins) || mins < 1) mins = 25;
+      startTimer(parts[0], parts[1] || null, mins * 60000);
+      return;
     }
 
     btn = e.target.closest('[data-pause]');
@@ -600,6 +750,11 @@
     else if (currentView === 'weekly') renderWeekly();
     else renderMonthly();
     $totalToday.textContent = fmtShort(todayTotal()) + ' today';
+    
+    var $btnShare = document.getElementById('btn-share-insights');
+    if ($btnShare) {
+      $btnShare.style.display = (currentView === 'weekly' || currentView === 'monthly') ? 'block' : 'none';
+    }
   }
 
   // --- Daily: Hour timeline (dynamic range) ---
@@ -607,25 +762,36 @@
     var day = dk(viewDate);
     $calLabel.textContent = viewDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
-    var daySessions = sessions.filter(function (s) { return dk(new Date(s.start)) === day; });
+    var daySessions = getSessionsForDay(day);
     var totalMs = 0;
     daySessions.forEach(function (s) { totalMs += s.duration; });
 
+    // Build a virtual session for the live active timer
+    var liveSession = null;
+    if (active && active.initialStart) {
+      var now = Date.now();
+      var liveStart = active.initialStart;
+      var liveEnd = now;
+      // Split virtual live session to this day
+      var liveFull = { id: '__live__', projectId: active.projectId, subprojectId: active.subprojectId, start: liveStart, end: liveEnd, duration: liveEnd - liveStart, pauseLog: active.pauseLog || [] };
+      var liveParts = splitSessionByDay(liveFull);
+      liveParts.forEach(function(p) {
+        if (dk(new Date(p.start)) === day) {
+          liveSession = p;
+          totalMs += p.duration;
+        }
+      });
+    }
+
     // Compute dynamic hour range based on actual sessions
     var minH = 8, maxH = 20;
-    daySessions.forEach(function (s) {
+    var allSessions = liveSession ? daySessions.concat([liveSession]) : daySessions;
+    allSessions.forEach(function (s) {
       var sh = new Date(s.start).getHours();
       var eh = new Date(s.end).getHours();
       if (sh < minH) minH = sh;
       if (eh + 1 > maxH) maxH = eh + 1;
     });
-    // Include current hour if timer is active today
-    if (active && dk(new Date(active.start)) === day) {
-      var ah = new Date(active.start).getHours();
-      var nh = new Date().getHours();
-      if (ah < minH) minH = ah;
-      if (nh + 1 > maxH) maxH = nh + 1;
-    }
     if (maxH > 24) maxH = 24;
 
     var viewTotalEl = document.getElementById('view-total');
@@ -638,7 +804,9 @@
       var hourEnd = new Date(viewDate); hourEnd.setHours(h + 1, 0, 0, 0);
 
       var blocks = [];
-      daySessions.forEach(function (s) {
+      var pauseBlocks = [];
+
+      allSessions.forEach(function (s) {
         var ss = Math.max(s.start, hourStart.getTime());
         var se = Math.min(s.end, hourEnd.getTime());
         if (se > ss) {
@@ -648,7 +816,22 @@
           var sub = getSub(proj, s.subprojectId);
           var label = proj ? proj.name : '?';
           if (sub) label += ' / ' + sub.name;
-          blocks.push({ left: left, width: Math.max(width, 1), color: proj ? proj.color : '#888', name: label });
+          var isLive = s.id === '__live__';
+          blocks.push({ left: left, width: Math.max(width, 1), color: proj ? proj.color : '#888', name: label, live: isLive });
+
+          // Render pause intervals as shaded overlay blocks
+          if (s.pauseLog && s.pauseLog.length > 0) {
+            s.pauseLog.forEach(function(p) {
+              var pEnd = p.end || Date.now();
+              var ps = Math.max(p.start, hourStart.getTime());
+              var pe = Math.min(pEnd, hourEnd.getTime());
+              if (pe > ps) {
+                var pLeft = ((ps - hourStart.getTime()) / 3600000) * 100;
+                var pWidth = ((pe - ps) / 3600000) * 100;
+                pauseBlocks.push({ left: pLeft, width: Math.max(pWidth, 0.5), color: proj ? proj.color : '#888' });
+              }
+            });
+          }
         }
       });
 
@@ -656,7 +839,10 @@
       html += '<span class="tt-hour-label">' + pad(h) + ':00</span>';
       html += '<div class="tt-hour-track">';
       blocks.forEach(function (b) {
-        html += '<div class="tt-hour-block" style="left:' + b.left + '%;width:' + b.width + '%;background:' + b.color + ';" title="' + esc(b.name) + '"></div>';
+        html += '<div class="tt-hour-block' + (b.live ? ' tt-hour-block-live' : '') + '" style="left:' + b.left + '%;width:' + b.width + '%;background:' + b.color + ';" title="' + esc(b.name) + '"></div>';
+      });
+      pauseBlocks.forEach(function (b) {
+        html += '<div class="tt-hour-block tt-hour-block-pause" style="left:' + b.left + '%;width:' + b.width + '%;background:' + b.color + ';" title="Paused"></div>';
       });
       html += '</div></div>';
     }
@@ -690,7 +876,7 @@
     var weekTotal = 0;
     var dayData = days.map(function (d) {
       var key = dk(d);
-      var daySess = sessions.filter(function (s) { return dk(new Date(s.start)) === key; });
+      var daySess = getSessionsForDay(key);
       var byProj = {};
       var total = 0;
       daySess.forEach(function (s) {
@@ -757,15 +943,19 @@
     var dayTotals = {};
     var dayProjects = {};
     var monthTotal = 0;
+    // Use split sessions to handle cross-day correctly
     sessions.forEach(function (s) {
-      var d = new Date(s.start);
-      if (d.getFullYear() === year && d.getMonth() === month) {
-        var key = d.getDate();
-        if (!dayTotals[key]) { dayTotals[key] = 0; dayProjects[key] = {}; }
-        dayTotals[key] += s.duration;
-        monthTotal += s.duration;
-        dayProjects[key][s.projectId] = (dayProjects[key][s.projectId] || 0) + s.duration;
-      }
+      var parts = splitSessionByDay(s);
+      parts.forEach(function(p) {
+        var d = new Date(p.start);
+        if (d.getFullYear() === year && d.getMonth() === month) {
+          var key = d.getDate();
+          if (!dayTotals[key]) { dayTotals[key] = 0; dayProjects[key] = {}; }
+          dayTotals[key] += p.duration;
+          monthTotal += p.duration;
+          dayProjects[key][p.projectId] = (dayProjects[key][p.projectId] || 0) + p.duration;
+        }
+      });
     });
 
     var maxDayMs = 0;
@@ -834,13 +1024,22 @@
       if (sub) name += ' / ' + esc(sub.name);
       var start = new Date(s.start);
       var end = new Date(s.end);
-      html += '<li class="timer-session-item">' +
-        '<span class="timer-project-dot" style="background:' + color + '"></span>' +
-        '<span class="timer-session-name">' + name + '</span>' +
-        '<span class="timer-session-time">' + pad(start.getHours()) + ':' + pad(start.getMinutes()) + ' - ' + pad(end.getHours()) + ':' + pad(end.getMinutes()) + '</span>' +
-        '<span class="timer-session-dur">' + fmtShort(s.duration) + '</span>' +
-        '<button class="timer-btn-icon timer-btn-danger" data-del-session="' + s.id + '" title="Delete">&times;</button>' +
-        '</li>';
+      
+      if (deletingSessionId === s.id) {
+        html += '<li class="timer-session-item" style="background: var(--accent-red); color: white; flex-wrap: wrap;">';
+        html += '<span style="flex:1; font-weight: bold; padding-left: 0.5rem; font-family: var(--font-heading); font-size: 0.8rem; text-transform: uppercase;">Are you sure?</span>';
+        html += '<button class="timer-btn-sm" style="background:white; color:var(--accent-red); margin-right: 0.5rem;" data-confirm-del-session="' + s.id + '">Delete</button>';
+        html += '<button class="timer-btn-sm" style="background:transparent; color:white; border: 1px solid white; margin-right: 0.5rem;" data-cancel-del-session="1">Cancel</button>';
+        html += '</li>';
+      } else {
+        html += '<li class="timer-session-item">' +
+          '<span class="timer-project-dot" style="background:' + color + '"></span>' +
+          '<span class="timer-session-name">' + name + '</span>' +
+          '<span class="timer-session-time">' + pad(start.getHours()) + ':' + pad(start.getMinutes()) + ' - ' + pad(end.getHours()) + ':' + pad(end.getMinutes()) + '</span>' +
+          '<span class="timer-session-dur">' + fmtShort(s.duration) + '</span>' +
+          '<button class="timer-btn-icon timer-btn-danger" data-del-session="' + s.id + '" title="Delete">&times;</button>' +
+          '</li>';
+      }
     });
     html += '</ul>';
     return html;
@@ -848,10 +1047,24 @@
 
   // Calendar click delegation: delete sessions + navigate to day
   $calView.addEventListener('click', function (e) {
-    var id = e.target.getAttribute('data-del-session');
-    if (id) {
+    var delBtn = e.target.closest('[data-del-session]');
+    if (delBtn) {
+      deletingSessionId = delBtn.getAttribute('data-del-session');
+      renderCalendar();
+      return;
+    }
+    var cancelDelBtn = e.target.closest('[data-cancel-del-session]');
+    if (cancelDelBtn) {
+      deletingSessionId = null;
+      renderCalendar();
+      return;
+    }
+    var confirmDelBtn = e.target.closest('[data-confirm-del-session]');
+    if (confirmDelBtn) {
+      var id = confirmDelBtn.getAttribute('data-confirm-del-session');
       sessions = sessions.filter(function (s) { return s.id !== id; });
       save('tt_sessions', sessions);
+      deletingSessionId = null;
       renderCalendar();
       return;
     }
@@ -860,6 +1073,262 @@
       goToDay(dayEl.getAttribute('data-goto-day'));
     }
   });
+
+  // --- Last Session Trim UI ---
+  function renderLastSession() {
+    var $ls = document.getElementById('last-session-trim');
+    if (!$ls) return;
+    if (!lastSession) { $ls.style.display = 'none'; return; }
+    var s = lastSession;
+    var proj = getProj(s.projectId);
+    var sub = proj ? getSub(proj, s.subprojectId) : null;
+    var name = proj ? esc(proj.name) : 'Unknown';
+    if (sub) name += ' / ' + esc(sub.name);
+    var startTime = new Date(s.start);
+    var endTime = new Date(s.end);
+    
+    // Slider range in seconds from start
+    var totalSeconds = Math.floor((s.end - s.start) / 1000);
+    if (totalSeconds < 1) totalSeconds = 1;
+
+    var html = '<div class="tt-lastsess-inner">';
+    html += '<span class="timer-project-dot" style="background:' + (proj ? proj.color : '#888') + '"></span>';
+    html += '<span class="tt-lastsess-name">Last Session: ' + name + '</span>';
+    html += '<button class="tt-row-btn" id="trim-dismiss" title="Dismiss">&times;</button>';
+    html += '</div>';
+    html += '<div class="tt-lastsess-slider">';
+    html += '<span class="tt-lastsess-label">' + pad(startTime.getHours()) + ':' + pad(startTime.getMinutes()) + '</span>';
+    html += '<input type="range" id="trim-slider" class="tt-trim-range" min="1" max="' + totalSeconds + '" value="' + totalSeconds + '" step="1">';
+    html += '<span class="tt-lastsess-label" id="trim-end-label">' + pad(endTime.getHours()) + ':' + pad(endTime.getMinutes()) + '</span>';
+    html += '</div>';
+    html += '<div class="tt-lastsess-footer">';
+    html += '<span class="tt-lastsess-dur" id="trim-dur-label">' + fmtShort(s.duration) + '</span>';
+    html += '<button class="timer-btn-sm" id="trim-done">Done</button>';
+    html += '</div>';
+    $ls.innerHTML = html;
+    $ls.style.display = '';
+
+    // Live update labels on slider input
+    var slider = document.getElementById('trim-slider');
+    if (slider) {
+      slider.addEventListener('input', function() {
+        var secs = parseInt(slider.value);
+        var newEndMs = s.start + secs * 1000;
+        var d = new Date(newEndMs);
+        var endLabel = document.getElementById('trim-end-label');
+        var durLabel = document.getElementById('trim-dur-label');
+        if (endLabel) endLabel.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+        if (durLabel) durLabel.textContent = fmtShort(newEndMs - s.start);
+      });
+    }
+  }
+
+  // Trim handler (via event delegation on the container)
+  var $lsContainer = document.getElementById('last-session-trim');
+  if ($lsContainer) {
+    $lsContainer.addEventListener('click', function(e) {
+      if (e.target.id === 'trim-dismiss') {
+        lastSession = null;
+        renderLastSession();
+        return;
+      }
+      if (e.target.id === 'trim-done') {
+        var slider = document.getElementById('trim-slider');
+        if (!slider || !lastSession) return;
+        var secs = parseInt(slider.value);
+        var newEndMs = lastSession.start + secs * 1000;
+        // Only apply if actually reduced
+        if (newEndMs < lastSession.end && newEndMs > lastSession.start) {
+          var sess = sessions.find(function(s) { return s.id === lastSession.id; });
+          if (sess) {
+            sess.end = newEndMs;
+            sess.duration = sess.end - sess.start;
+            if (sess.pauseLog) {
+              sess.pauseLog = sess.pauseLog.filter(function(p) { return p.start < newEndMs; });
+              sess.pauseLog.forEach(function(p) { if (p.end > newEndMs) p.end = newEndMs; });
+            }
+            save('tt_sessions', sessions);
+            renderCalendar();
+          }
+        }
+        lastSession = null;
+        renderLastSession();
+        return;
+      }
+    });
+  }
+
+  var $btnShareInsights = document.getElementById('btn-share-insights');
+  if ($btnShareInsights) {
+    $btnShareInsights.addEventListener('click', generateInsightsImage);
+  }
+
+  function loadHtml2Canvas(cb) {
+    if (window.html2canvas) { cb(); return; }
+    var script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    script.onload = cb;
+    document.head.appendChild(script);
+  }
+
+  function generateInsightsImage() {
+    var title = currentView === 'weekly' ? 'Weekly Insight' : 'Monthly Insight';
+    var periodLabel = $calLabel.textContent;
+    var totalTime = document.getElementById('view-total') ? document.getElementById('view-total').textContent : '0h 0m';
+    
+    var btnLeg = document.getElementById('insights-legend-btn');
+    var withLegend = btnLeg && btnLeg.getAttribute('data-checked') !== '0';
+
+    var wrap = document.createElement('div');
+    wrap.style.position = 'absolute';
+    wrap.style.top = '-9999px';
+    wrap.style.left = '-9999px';
+    wrap.style.width = '800px';
+    
+    var bg = getComputedStyle(document.body).backgroundColor;
+    var fg = getComputedStyle(document.body).color;
+    var fontMono = getComputedStyle(document.documentElement).getPropertyValue('--font-mono') || 'monospace';
+    var fontHeading = getComputedStyle(document.documentElement).getPropertyValue('--font-heading') || 'sans-serif';
+
+    wrap.style.backgroundColor = bg;
+    wrap.style.color = fg;
+    wrap.style.padding = '40px';
+    wrap.style.border = '4px solid ' + fg;
+    wrap.style.boxSizing = 'border-box';
+    wrap.style.fontFamily = fontMono;
+
+    var html = '<div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 4px solid ' + fg + '; padding-bottom: 15px; margin-bottom: 30px;">';
+    html += '<h1 style="font-family: ' + fontHeading + '; font-weight: 900; font-size: 42px; margin: 0; text-transform: uppercase;">ES. TIMER</h1>';
+    html += '<div style="text-align: right;">';
+    html += '<div style="font-size: 20px; font-weight: bold; text-transform: uppercase;">' + periodLabel + '</div>';
+    html += '<div style="font-size: 16px;">TOTAL: ' + totalTime + '</div>';
+    html += '</div></div>';
+    
+    wrap.innerHTML = html;
+
+    var calView = document.getElementById('calendar-view');
+    if (calView) {
+      var clone = calView.cloneNode(true);
+      wrap.appendChild(clone);
+    }
+
+    if (withLegend) {
+      var targetSessions = [];
+      if (currentView === 'weekly') {
+        var monday = new Date(viewDate);
+        monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+        monday.setHours(0, 0, 0, 0);
+        for (var i = 0; i < 7; i++) {
+          var d = new Date(monday); d.setDate(d.getDate() + i);
+          targetSessions = targetSessions.concat(getSessionsForDay(dk(d)));
+        }
+      } else {
+        var year = viewDate.getFullYear();
+        var month = viewDate.getMonth();
+        var daysInMonth = new Date(year, month + 1, 0).getDate();
+        for (var day = 1; day <= daysInMonth; day++) {
+          var cellKey = year + '-' + pad(month + 1) + '-' + pad(day);
+          targetSessions = targetSessions.concat(getSessionsForDay(cellKey));
+        }
+      }
+
+      var byProj = {};
+      targetSessions.forEach(function(s) {
+        if (!byProj[s.projectId]) byProj[s.projectId] = 0;
+        byProj[s.projectId] += s.duration;
+      });
+
+      var projArr = Object.keys(byProj).map(function(pid) {
+        return { id: pid, dur: byProj[pid] };
+      });
+      projArr.sort(function(a, b) { return b.dur - a.dur; });
+
+      if (projArr.length > 0) {
+        var legHtml = '<div style="margin-top: 30px; padding-top: 20px; border-top: 2px dashed ' + fg + '55; display: flex; flex-wrap: wrap; gap: 20px;">';
+        projArr.forEach(function(pItem) {
+          var p = getProj(pItem.id);
+          var name = p ? p.name : 'Unknown';
+          var color = p ? p.color : '#888';
+          legHtml += '<div style="display: flex; align-items: center; gap: 8px; font-size: 14px;">';
+          legHtml += '<span style="width: 14px; height: 14px; background: ' + color + '; display: inline-block;"></span>';
+          legHtml += '<strong>' + esc(name).toUpperCase() + '</strong>';
+          legHtml += '<span style="opacity: 0.7;">' + fmtShort(pItem.dur) + '</span>';
+          legHtml += '</div>';
+        });
+        legHtml += '</div>';
+        
+        var legDiv = document.createElement('div');
+        legDiv.innerHTML = legHtml;
+        wrap.appendChild(legDiv);
+      }
+    }
+
+    document.body.appendChild(wrap);
+
+    var originalBtnText = $btnShareInsights.textContent;
+    $btnShareInsights.textContent = 'Generating...';
+    
+    // Also show generating state in modal if it's already open
+    var $imgContainer = document.getElementById('insights-img-container');
+    if ($imgContainer && document.getElementById('insights-modal').style.display === 'flex') {
+       $imgContainer.innerHTML = '<div style="padding: 2rem;">Generating Image...</div>';
+    }
+
+    loadHtml2Canvas(function() {
+      setTimeout(function() {
+        html2canvas(wrap, {
+          backgroundColor: bg,
+          scale: 2,
+          logging: false
+        }).then(function(canvas) {
+          document.body.removeChild(wrap);
+          $btnShareInsights.textContent = originalBtnText;
+          var imgUrl = canvas.toDataURL("image/png");
+          
+          var $modal = document.getElementById('insights-modal');
+          var $btnDl = document.getElementById('insights-download-btn');
+          
+          if ($modal && $imgContainer && $btnDl) {
+            $imgContainer.innerHTML = '<img src="' + imgUrl + '" style="max-width: 100%; max-height: 60vh; display: block; border: 2px solid ' + fg + ';">';
+            $btnDl.href = imgUrl;
+            var dlName = 'es-timer-' + title.toLowerCase().replace(' ', '-') + '.png';
+            $btnDl.setAttribute('download', dlName);
+            $modal.style.display = 'flex';
+          }
+        });
+      }, 50);
+    });
+  }
+
+  var $legendBtn = document.getElementById('insights-legend-btn');
+  if ($legendBtn) {
+    $legendBtn.setAttribute('data-checked', '1');
+    $legendBtn.addEventListener('click', function() {
+      var isChecked = $legendBtn.getAttribute('data-checked') === '1';
+      if (isChecked) {
+        $legendBtn.setAttribute('data-checked', '0');
+        $legendBtn.innerHTML = '&#9744; INCLUDE PROJECT LEGEND';
+        $legendBtn.style.color = '#F4F4F4';
+        $legendBtn.style.background = 'transparent';
+      } else {
+        $legendBtn.setAttribute('data-checked', '1');
+        $legendBtn.innerHTML = '&#9745; INCLUDE PROJECT LEGEND';
+        $legendBtn.style.color = '#1A1A1A';
+        $legendBtn.style.background = '#F4F4F4';
+      }
+      if (document.getElementById('insights-modal').style.display === 'flex') {
+         generateInsightsImage();
+      }
+    });
+  }
+
+  var $modalClose = document.getElementById('insights-close');
+  if ($modalClose) {
+    $modalClose.addEventListener('click', function() {
+      var $modal = document.getElementById('insights-modal');
+      if ($modal) $modal.style.display = 'none';
+    });
+  }
 
   // --- Global Keyboard Shortcuts ---
   document.addEventListener('keydown', function(e) {
@@ -880,5 +1349,6 @@
   renderPanel();
   renderBanner();
   renderCalendar();
+  renderLastSession();
 
 })();

@@ -785,9 +785,24 @@ p { margin-bottom: 1rem; }
   font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
   transition: background var(--transition);
 }
-.tt-row:hover { background: var(--bg-surface); }
-.tt-row-active { background: var(--bg-surface); }
+.tt-row-selectable:hover { background: rgba(0,0,0,0.03); }
+.tt-row-active, .tt-row-selected { background: var(--bg-surface) !important; }
 
+.tt-start-panel {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem 0.75rem 2rem;
+  background: var(--bg-surface);
+  border-top: 1px dashed var(--border-color);
+  gap: 0.5rem;
+}
+.tt-start-or {
+  font-family: var(--font-heading);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin: 0 0.5rem;
+  font-weight: 700;
+}
 .tt-row-sub { border-top: 1px solid var(--border-color); }
 .tt-sub-indent { width: 1.25rem; flex-shrink: 0; }
 .tt-dot-sm { width: 8px !important; height: 8px !important; }
@@ -891,6 +906,57 @@ p { margin-bottom: 1rem; }
 .tt-hour-block {
   position: absolute; top: 0; height: 100%;
   min-width: 2px;
+}
+.tt-hour-block-pause {
+  opacity: 0.35;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent, transparent 3px,
+    rgba(255,255,255,0.5) 3px, rgba(255,255,255,0.5) 6px
+  ) !important;
+}
+.tt-hour-block-live {
+  opacity: 0.7;
+  animation: tt-live-pulse 1.5s ease-in-out infinite;
+}
+@keyframes tt-live-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Last Session Trim */
+.tt-lastsess {
+  border: 2px solid var(--accent-green);
+  background: var(--card-bg);
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+}
+.tt-lastsess-inner {
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.tt-lastsess-name {
+  font-family: var(--font-heading); font-weight: 900; font-size: 0.85rem;
+  text-transform: uppercase; flex: 1;
+}
+.tt-lastsess-slider {
+  display: flex; align-items: center; gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.tt-lastsess-label {
+  font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700;
+  min-width: 42px; text-align: center;
+}
+.tt-trim-range {
+  flex: 1; height: 6px; cursor: pointer;
+  accent-color: var(--accent-green);
+}
+.tt-lastsess-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 0.75rem;
+}
+.tt-lastsess-dur {
+  font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700;
+  color: var(--accent-green);
 }
 
 /* === WEEKLY COLUMNS === */
