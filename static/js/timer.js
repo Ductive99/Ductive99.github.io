@@ -251,6 +251,7 @@
   function renderPanel() {
     var html = '';
     projects.forEach(function (p) {
+      if (p.archived) return;
       var isActive = active && active.projectId === p.id && !active.subprojectId;
       var expanded = !!expandedProjects[p.id];
       var hasSubs = p.subs && p.subs.length > 0;
@@ -259,8 +260,9 @@
       
       if (deletingId === p.id) {
         html += '<div class="tt-row" style="background: var(--accent-red); color: white; border-bottom: 2px solid var(--border-color);">';
-        html += '<span style="flex:1; font-weight: bold; padding-left: 0.5rem;">Are you sure? This action is irreversible.</span>';
-        html += '<button class="timer-btn-sm" style="background:white; color:var(--accent-red); margin-right: 0.5rem;" data-confirmdel="' + p.id + '">Yes, Delete</button>';
+        html += '<span style="flex:1; font-weight: bold; padding-left: 0.5rem; font-size: 0.85rem;">Are you sure?</span>';
+        html += '<button class="timer-btn-sm" style="background:var(--accent-yellow); color:var(--text-main); margin-right: 0.5rem;" data-archiveproj="' + p.id + '" title="Remove from list but keep data for insights">Archive</button>';
+        html += '<button class="timer-btn-sm" style="background:white; color:var(--accent-red); margin-right: 0.5rem;" data-confirmdel="' + p.id + '" title="Permanently delete project and break past insight data">Delete All</button>';
         html += '<button class="timer-btn-sm" style="background:transparent; color:white; border: 1px solid white; margin-right: 0.5rem;" data-canceldel="1">Cancel</button>';
         html += '</div>';
       } else if (editingId === p.id) {
@@ -322,16 +324,15 @@
         if (hasSubs) {
           p.subs.forEach(function (s) {
           var subActive = active && active.projectId === p.id && active.subprojectId === s.id;
-          html += '<div class="tt-row tt-row-sub' + (subActive ? ' tt-row-active' : '') + '" data-timer-id="' + p.id + ':' + s.id + '" draggable="true" data-drag-sub="' + p.id + ':' + s.id + '">';
           
           if (deletingId === p.id + ':' + s.id) {
-            html += '<div class="tt-row" style="background: var(--accent-red); color: white; width: 100%; border: none;">';
+            html += '<div class="tt-row tt-row-sub" style="background: var(--accent-red); color: white; width: 100%; border: none;">';
             html += '<span style="flex:1; font-weight: bold; padding-left: 1.5rem; font-size: 0.85rem;">Are you sure?</span>';
             html += '<button class="timer-btn-sm" style="background:white; color:var(--accent-red); margin-right: 0.5rem;" data-confirmdelsub="' + p.id + ':' + s.id + '">Delete</button>';
             html += '<button class="timer-btn-sm" style="background:transparent; color:white; border: 1px solid white; margin-right: 0.5rem;" data-canceldel="1">Cancel</button>';
             html += '</div>';
           } else if (editingId === p.id + ':' + s.id) {
-            html += '<div class="tt-row" style="width:100%;">';
+            html += '<div class="tt-row tt-row-sub" style="width:100%;">';
             html += '<span class="tt-sub-indent"></span>';
             html += '<input type="text" id="edit-subname-' + p.id + '-' + s.id + '" class="timer-input tt-input-sm" value="' + esc(s.name).replace(/"/g, '&quot;') + '" style="flex:1; margin-right: 0.5rem; padding: 0.25rem 0.5rem;">';
             html += '<button class="timer-btn-sm" data-saveeditsub="' + p.id + ':' + s.id + '" style="margin-right: 0.25rem;">Save</button>';
@@ -500,6 +501,19 @@
     btn = e.target.closest('[data-delsub]');
     if (btn) {
       deletingId = btn.getAttribute('data-delsub');
+      renderPanel();
+      return;
+    }
+
+    btn = e.target.closest('[data-archiveproj]');
+    if (btn) {
+      var did = btn.getAttribute('data-archiveproj');
+      var p = getProj(did);
+      if (p) {
+        p.archived = true;
+        save('tt_projects', projects);
+      }
+      deletingId = null;
       renderPanel();
       return;
     }
