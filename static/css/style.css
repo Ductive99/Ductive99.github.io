@@ -867,6 +867,22 @@ p { margin-bottom: 1rem; }
 /* View Toggle */
 .timer-view-toggle { display: flex; gap: 0.5rem; justify-content: center; }
 
+/* Stats Banner */
+.tt-stats-banner {
+  display: flex; gap: 1.5rem; margin-bottom: 1.5rem; padding: 1.5rem 1rem;
+  background: var(--card-bg); border: 2px solid var(--border-color);
+  justify-content: space-around; flex-wrap: wrap; box-shadow: var(--shadow);
+}
+.tt-stat-item { text-align: center; }
+.tt-stat-val {
+  font-family: var(--font-heading); font-weight: 900; font-size: 1.5rem;
+  color: var(--text-main); line-height: 1.2; text-transform: uppercase;
+}
+.tt-stat-label {
+  font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem;
+}
+
 /* Bottom Toolbar */
 .timer-toolbar-bottom {
   display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;

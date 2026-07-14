@@ -871,6 +871,92 @@
     $calView.innerHTML = html;
   }
 
+  function buildStatsBanner(dayData, totalMs) {
+    var activeDays = 0;
+    var bestDayVal = 0;
+    var bestDayDate = null;
+    var projTotals = {};
+    
+    dayData.forEach(function(d) {
+      if (d.total > 0) {
+        activeDays++;
+        if (d.total > bestDayVal) {
+          bestDayVal = d.total;
+          bestDayDate = d.date;
+        }
+      }
+      if (d.byProj) {
+        Object.keys(d.byProj).forEach(function(pid) {
+          if (!projTotals[pid]) projTotals[pid] = 0;
+          projTotals[pid] += d.byProj[pid];
+        });
+      }
+    });
+
+    var topProjId = null;
+    var topProjVal = 0;
+    Object.keys(projTotals).forEach(function(pid) {
+      if (projTotals[pid] > topProjVal) {
+        topProjVal = projTotals[pid];
+        topProjId = pid;
+      }
+    });
+
+    var avgDaily = activeDays > 0 ? totalMs / activeDays : 0;
+    var topProjName = '-';
+    if (topProjId) {
+      var p = getProj(topProjId);
+      topProjName = p ? p.name : 'Unknown';
+    }
+    if (topProjName.length > 15) {
+      topProjName = topProjName.substring(0, 15) + '...';
+    }
+
+    var bestDayStr = '-';
+    if (bestDayDate) {
+      bestDayStr = bestDayDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+
+    var html = '<div class="tt-stats-banner">';
+    
+    html += '<div class="tt-stat-item">';
+    html += '<div class="tt-stat-val">' + fmtShort(avgDaily) + '</div>';
+    html += '<div class="tt-stat-label">Daily Avg</div>';
+    html += '</div>';
+
+    html += '<div class="tt-stat-item">';
+    html += '<div class="tt-stat-val" title="' + esc(topProjName) + '">' + esc(topProjName) + '</div>';
+    html += '<div class="tt-stat-label">Top Project</div>';
+    html += '</div>';
+
+    html += '<div class="tt-stat-item">';
+    html += '<div class="tt-stat-val">' + bestDayStr + '</div>';
+    html += '<div class="tt-stat-label">Best Day (' + fmtShort(bestDayVal) + ')</div>';
+    html += '</div>';
+
+    html += '<div class="tt-stat-item">';
+    html += '<div class="tt-stat-val">' + activeDays + ' / ' + dayData.length + '</div>';
+    html += '<div class="tt-stat-label">Active Days</div>';
+    html += '</div>';
+
+    if (totalMs > 0) {
+      html += '<div style="width: 100%; margin-top: 1rem;">';
+      html += '<div style="display: flex; width: 100%; height: 8px; background: var(--border-color);">';
+      Object.keys(projTotals).sort(function(a, b) { return projTotals[b] - projTotals[a]; }).forEach(function(pid) {
+        var pct = (projTotals[pid] / totalMs) * 100;
+        var p = getProj(pid);
+        var color = p ? p.color : '#888';
+        var name = p ? esc(p.name) : 'Unknown';
+        html += '<div style="width: ' + pct + '%; background: ' + color + ';" title="' + name + ': ' + fmtShort(projTotals[pid]) + '"></div>';
+      });
+      html += '</div>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
   // --- Weekly: 7 day columns ---
   function renderWeekly() {
     var monday = new Date(viewDate);
@@ -940,6 +1026,7 @@
     });
 
     html += '</div>';
+    html += buildStatsBanner(dayData, weekTotal);
     $calView.innerHTML = html;
   }
 
@@ -982,6 +1069,16 @@
     var viewTotalEl = document.getElementById('view-total');
     if (viewTotalEl) viewTotalEl.textContent = fmtShort(monthTotal);
 
+    var dayData = [];
+    for (var d = 1; d <= daysInMonth; d++) {
+      var curDate = new Date(year, month, d);
+      dayData.push({
+        date: curDate,
+        total: dayTotals[d] || 0,
+        byProj: dayProjects[d] || {}
+      });
+    }
+
     var html = '<div class="tt-month-grid">';
 
     // Header
@@ -1023,6 +1120,7 @@
     }
 
     html += '</div>';
+    html += buildStatsBanner(dayData, monthTotal);
     $calView.innerHTML = html;
   }
 
@@ -1223,8 +1321,29 @@
     var calView = document.getElementById('calendar-view');
     if (calView) {
       var clone = calView.cloneNode(true);
+      if (!withLegend) {
+        var statItems = clone.querySelectorAll('.tt-stat-item');
+        for (var i = 0; i < statItems.length; i++) {
+          if (statItems[i].innerHTML.indexOf('Top Project') !== -1) {
+            var valDiv = statItems[i].querySelector('.tt-stat-val');
+            if (valDiv) valDiv.textContent = '***';
+          }
+        }
+        var statBars = clone.querySelector('.tt-stats-banner > div[style*="width: 100%"]');
+        if (statBars) statBars.style.display = 'none';
+      }
       wrap.appendChild(clone);
     }
+
+    var watermark = document.createElement('div');
+    watermark.style.position = 'absolute';
+    watermark.style.bottom = '20px';
+    watermark.style.right = '20px';
+    watermark.style.fontFamily = fontMono;
+    watermark.style.fontSize = '12px';
+    watermark.style.opacity = '0.5';
+    watermark.textContent = 'elhoussain.me';
+    wrap.appendChild(watermark);
 
     if (withLegend) {
       var targetSessions = [];
@@ -1305,7 +1424,7 @@
           if ($modal && $imgContainer && $btnDl) {
             $imgContainer.innerHTML = '<img src="' + imgUrl + '" style="max-width: 100%; max-height: 60vh; display: block; border: 2px solid ' + fg + ';">';
             $btnDl.href = imgUrl;
-            var dlName = 'es-timer-' + title.toLowerCase().replace(' ', '-') + '.png';
+            var dlName = 'es-timer-' + currentView + '-' + new Date().toISOString().split('T')[0] + '.png';
             $btnDl.setAttribute('download', dlName);
             $modal.style.display = 'flex';
           }
@@ -1343,6 +1462,57 @@
       if ($modal) $modal.style.display = 'none';
     });
   }
+
+  // --- Data Export & Import ---
+  /*
+  var $btnExport = document.getElementById('btn-export-data');
+  if ($btnExport) {
+    $btnExport.addEventListener('click', function() {
+      var data = {
+        version: 1,
+        projects: projects,
+        sessions: sessions
+      };
+      var blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'es-timer-backup-' + new Date().toISOString().split('T')[0] + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  var $btnImport = document.getElementById('btn-import-data');
+  if ($btnImport) {
+    $btnImport.addEventListener('change', function(e) {
+      if (!e.target.files || e.target.files.length === 0) return;
+      var file = e.target.files[0];
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        try {
+          var data = JSON.parse(ev.target.result);
+          if (data.projects && Array.isArray(data.projects)) {
+            projects = data.projects;
+            save('tt_projects', projects);
+          }
+          if (data.sessions && Array.isArray(data.sessions)) {
+            sessions = data.sessions;
+            save('tt_sessions', sessions);
+          }
+          alert('Data imported successfully!');
+          renderPanel();
+          renderCalendar();
+          renderLastSession();
+        } catch(err) {
+          alert('Failed to import data: ' + err.message);
+        }
+        e.target.value = ''; // Reset input
+      };
+      reader.readAsText(file);
+    });
+  }
+  */
 
   // --- Global Keyboard Shortcuts ---
   document.addEventListener('keydown', function(e) {

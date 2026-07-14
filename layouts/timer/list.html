@@ -1,9 +1,18 @@
 {{ define "main" }}
 <div class="page-container">
 
-  <div class="section-header">
-    <h1>Timer</h1>
-    <span class="section-count" id="total-today">0h 0m today</span>
+  <div class="section-header" style="align-items: center;">
+    <div style="display:flex; align-items:baseline; gap: 1rem;">
+      <h1 style="margin: 0;">Timer</h1>
+      <span class="section-count" id="total-today">0h 0m today</span>
+    </div>
+    <!-- <div style="display:flex; gap: 0.5rem; align-items:center;">
+      <button id="btn-export-data" class="filter-btn" style="padding: 0.25rem 0.6rem; font-size: 0.7rem; margin: 0;">Export</button>
+      <label class="filter-btn" style="padding: 0.25rem 0.6rem; font-size: 0.7rem; cursor: pointer; margin: 0;">
+        Import
+        <input type="file" id="btn-import-data" accept=".json" style="display: none;">
+      </label>
+    </div> -->
   </div>
 
   <!-- Active Timer Banner -->
