@@ -9,9 +9,11 @@
     {{ end }}
   </div>
 
+  {{ $books := .Site.Data.books }}
+  {{ if $books }}
   <!-- Category Filter Bar -->
   {{ $allCats := slice }}
-  {{ range .Site.Data.books }}
+  {{ range $books }}
     {{ range .categories }}
       {{ $allCats = $allCats | append . }}
     {{ end }}
@@ -29,7 +31,7 @@
 
   <!-- Books Grid -->
   <div class="books-grid">
-    {{ range .Site.Data.books }}
+    {{ range $books }}
     <article class="book-card" data-categories="{{ delimit .categories "," }}" data-hidden="false">
       {{ with .cover }}
       <img class="book-cover" src="{{ . }}" alt="Book cover" loading="lazy">
@@ -60,6 +62,9 @@
     </article>
     {{ end }}
   </div>
+  {{ else }}
+  <p style="font-family: var(--font-mono); font-size: 0.9rem; color: var(--text-muted); margin-top: 1rem;">Books will be added to the library.</p>
+  {{ end }}
 
 </div>
 {{ end }}

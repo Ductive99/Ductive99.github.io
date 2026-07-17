@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 — Page Not Found</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" type="image/svg+xml" href="{{ "images/favicon.svg" | absURL }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Lora:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script>
+    (function() {
+      var theme = localStorage.getItem('theme');
+      if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+  </script>
+  <link rel="stylesheet" href="{{ "css/style.css" | absURL }}">
+  <style>
+    /* ---- LETTER RAIN OVERLAY ---- */
+    #letter-rain {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--bg-paper);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.6s ease;
+    }
+    #letter-rain.done { opacity: 0; pointer-events: none; }
+
+    .rain-letter {
+      position: absolute;
+      top: -60px;
+      font-family: var(--font-heading);
+      font-weight: 900;
+      color: var(--text-main);
+      opacity: 0.12;
+      user-select: none;
+      pointer-events: none;
+      will-change: transform;
+    }
+
+    /* ---- PAGE LAYOUT ---- */
+    .err-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ---- THE BIG 404 ---- */
+    .err-num {
+      font-family: var(--font-heading);
+      font-weight: 900;
+      font-size: clamp(8rem, 25vw, 18rem);
+      line-height: 0.85;
+      letter-spacing: -0.06em;
+      text-transform: uppercase;
+      color: var(--text-main);
+      position: relative;
+      user-select: none;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Red accent stripe through the number */
+    .err-num::after {
+      content: '';
+      position: absolute;
+      left: -5%; right: -5%;
+      top: 48%;
+      height: 12px;
+      background: var(--accent-red);
+      transform: rotate(-2deg);
+      z-index: 1;
+    }
+
+    /* ---- SUBTITLE ---- */
+    .err-sub {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: clamp(0.9rem, 2.5vw, 1.4rem);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+    }
+
+    /* ---- TERMINAL BOX ---- */
+    .err-terminal {
+      width: min(520px, 90vw);
+      margin: 0 auto 2.5rem;
+      border: 3px solid var(--border-color);
+      background: var(--card-bg);
+      text-align: left;
+      box-shadow: 6px 6px 0 var(--border-color);
+      transform: translateX(-3px);
+    }
+    .err-terminal-bar {
+      background: var(--text-main);
+      color: var(--bg-paper);
+      padding: 0.35rem 0.75rem;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .err-terminal-dots {
+      display: flex; gap: 5px;
+    }
+    .err-terminal-dots span {
+      width: 9px; height: 9px; border-radius: 50%;
+      display: inline-block;
+    }
+    .err-terminal-dots span:nth-child(1) { background: var(--accent-red); }
+    .err-terminal-dots span:nth-child(2) { background: var(--accent-yellow); }
+    .err-terminal-dots span:nth-child(3) { background: var(--accent-green); }
+    .err-terminal-title { flex: 1; text-align: center; }
+
+    .err-terminal-body {
+      padding: 1rem 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      line-height: 1.9;
+      min-height: 140px;
+    }
+
+    .t-line { display: flex; gap: 0.5rem; }
+    .t-prompt { color: var(--accent-green); flex-shrink: 0; font-weight: 700; }
+    .t-out { color: var(--text-main); }
+    .t-out.t-err { color: var(--accent-red); font-weight: 700; }
+    .t-out.t-warn { color: var(--accent-yellow); }
+    .t-out.t-dim { color: var(--text-muted); }
+    .t-cursor {
+      display: inline-block;
+      width: 0.55em; height: 1.05em;
+      background: var(--accent-green);
+      vertical-align: text-bottom;
+      animation: crt-blink 1s step-end infinite;
+    }
+
+    @keyframes crt-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* ---- HOME BUTTON ---- */
+    .err-home {
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+    .err-home.show { opacity: 1; }
+    .err-home a {
+      font-family: var(--font-heading);
+      font-weight: 900;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.65rem 1.5rem;
+      border: 3px solid var(--border-color);
+      background: var(--accent-green);
+      color: #FFF;
+      text-decoration: none;
+      box-shadow: 4px 4px 0 var(--border-color);
+      transition: transform 0.15s, box-shadow 0.15s;
+      display: inline-block;
+    }
+    .err-home a:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0 var(--border-color);
+    }
+
+    /* ---- COMMODORE STRIPE ---- */
+    .err-stripe {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 8px;
+    }
+
+    /* ---- FLOATING LETTERS BG ---- */
+    .bg-letter {
+      position: absolute;
+      font-family: var(--font-heading);
+      font-weight: 900;
+      color: var(--text-main);
+      opacity: 0.03;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* ---- HIDDEN UNTIL REVEAL ---- */
+    .err-content { opacity: 0; }
+    .err-content.revealed {
+      animation: err-fadeUp 0.8s ease forwards;
+    }
+    @keyframes err-fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .t-line { opacity: 0; }
+    .t-line.typed { animation: err-lineIn 0.2s ease forwards; }
+    @keyframes err-lineIn {
+      from { opacity: 0; transform: translateX(-8px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    @keyframes letterFall {
+      0%   { transform: translateY(0) rotate(0deg); opacity: 0; }
+      8%   { opacity: 1; }
+      100% { transform: translateY(calc(100vh + 100px)) rotate(var(--rot)); opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ============ LETTER RAIN INTRO ============ -->
+<div id="letter-rain"></div>
+
+<!-- ============ MAIN 404 PAGE ============ -->
+<div class="err-page">
+
+  <!-- Scattered background decoration letters -->
+  <div id="bg-letters" aria-hidden="true"></div>
+
+  <div class="err-content" id="err-content">
+    <div class="err-num">404</div>
+    <div class="err-sub">Page Not Found</div>
+
+    <div class="commodore-stripe" style="width: min(520px, 90vw); margin: 0 auto 2rem;" aria-hidden="true"></div>
+
+    <div class="err-terminal">
+      <div class="err-terminal-bar">
+        <div class="err-terminal-dots"><span></span><span></span><span></span></div>
+        <span class="err-terminal-title">system diagnostic</span>
+      </div>
+      <div class="err-terminal-body" id="terminal-body"></div>
+    </div>
+
+    <div class="err-home" id="err-home">
+      <a href="{{ "/" | absURL }}">← Return Home</a>
+    </div>
+  </div>
+
+  <div class="commodore-stripe err-stripe" aria-hidden="true"></div>
+</div>
+
+<script>
+(function() {
+  // ==========================
+  // 1. LETTER RAIN
+  // ==========================
+  var rain = document.getElementById('letter-rain');
+  var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789?!@#$%&*404';
+  var LETTER_COUNT = 200;
+  var fragment = document.createDocumentFragment();
+
+  for (var i = 0; i < LETTER_COUNT; i++) {
+    var span = document.createElement('span');
+    span.className = 'rain-letter';
+    span.textContent = chars[Math.floor(Math.random() * chars.length)];
+
+    var size = 14 + Math.random() * 60;
+    var left = Math.random() * 100;
+    var delay = Math.random() * 1.2;
+    var dur = 0.8 + Math.random() * 1.5;
+    var rot = -40 + Math.random() * 80;
+
+    span.style.cssText =
+      'font-size:' + size + 'px;' +
+      'left:' + left + '%;' +
+      '--rot:' + rot + 'deg;' +
+      'animation: letterFall ' + dur + 's ' + delay + 's ease-in forwards;';
+
+    fragment.appendChild(span);
+  }
+  rain.appendChild(fragment);
+
+  // After the rain finishes, fade it away and reveal main content
+  setTimeout(function() {
+    rain.classList.add('done');
+    document.getElementById('err-content').classList.add('revealed');
+
+    // Start terminal typewriter after content fades in
+    setTimeout(startTerminal, 600);
+
+    // Remove rain DOM after fade
+    setTimeout(function() { rain.remove(); }, 1000);
+  }, 2800);
+
+  // ==========================
+  // 2. SCATTERED BG LETTERS
+  // ==========================
+  var bgContainer = document.getElementById('bg-letters');
+  var bgChars = '404?!ERROR';
+  for (var b = 0; b < 30; b++) {
+    var el = document.createElement('div');
+    el.className = 'bg-letter';
+    el.textContent = bgChars[Math.floor(Math.random() * bgChars.length)];
+    el.style.fontSize = (40 + Math.random() * 200) + 'px';
+    el.style.left = (Math.random() * 100) + '%';
+    el.style.top = (Math.random() * 100) + '%';
+    el.style.transform = 'rotate(' + (-20 + Math.random() * 40) + 'deg)';
+    bgContainer.appendChild(el);
+  }
+
+  // ==========================
+  // 3. TERMINAL TYPEWRITER
+  // ==========================
+  function startTerminal() {
+    var body = document.getElementById('terminal-body');
+    var homeBtn = document.getElementById('err-home');
+
+    var lines = [
+      { delay: 0,    cls: 't-dim',  prompt: '$', text: 'searching for "' + window.location.pathname + '"...' },
+      { delay: 500,  cls: 't-err',  prompt: '!', text: 'ERROR 404 — resource not found' },
+      { delay: 1200, cls: 't-warn', prompt: '~', text: 'this page may have been moved or deleted' },
+      { delay: 2000, cls: 't-dim',  prompt: '$', text: 'locating nearest safe route...' },
+      { delay: 2900, cls: '',       prompt: '>', text: 'route found → elhoussain.me/' },
+    ];
+
+    lines.forEach(function(l, idx) {
+      setTimeout(function() {
+        var div = document.createElement('div');
+        div.className = 't-line typed';
+
+        var pr = document.createElement('span');
+        pr.className = 't-prompt';
+        pr.textContent = l.prompt;
+
+        var out = document.createElement('span');
+        out.className = 't-out' + (l.cls ? ' ' + l.cls : '');
+
+        div.appendChild(pr);
+        div.appendChild(out);
+        body.appendChild(div);
+
+        // Typewrite
+        var c = 0, speed = 20;
+        (function typ() {
+          if (c <= l.text.length) {
+            out.textContent = l.text.slice(0, c);
+            if (idx === lines.length - 1 && c === l.text.length) {
+              var cur = document.createElement('span');
+              cur.className = 't-cursor';
+              out.appendChild(cur);
+            }
+            c++;
+            setTimeout(typ, speed + Math.random() * 25);
+          }
+        })();
+
+        if (idx === lines.length - 1) {
+          setTimeout(function() {
+            homeBtn.classList.add('show');
+          }, l.text.length * (speed + 12) + 400);
+        }
+      }, l.delay);
+    });
+  }
+})();
+</script>
+</body>
+</html>

@@ -16,7 +16,7 @@
 <meta name="twitter:image" content="{{ .Site.BaseURL }}images/og-image.png">
 
 <!-- Favicon -->
-<link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
+<link rel="icon" type="image/svg+xml" href="{{ "images/favicon.svg" | absURL }}">
 
 <!-- Preload critical fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,4 +33,4 @@
   })();
 </script>
 
-<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="{{ "css/style.css" | absURL }}">

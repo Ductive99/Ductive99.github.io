@@ -9,6 +9,6 @@
     {{- block "main" . }}{{- end }}
   </main>
   {{- partial "footer.html" . -}}
-  <script src="/js/main.js" defer></script>
+  <script src="{{ "js/main.js" | absURL }}" defer></script>
 </body>
 </html>

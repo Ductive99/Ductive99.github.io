@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  {{- partial "head.html" . -}}
+  <style>
+    /* ---- Links page overrides ---- */
+    .links-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 3rem 1.5rem;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+    .links-header { text-align: center; margin-bottom: 2rem; }
+    .links-logo {
+      display: inline-block;
+      font-family: var(--font-heading);
+      font-weight: 900;
+      font-size: 2rem;
+      letter-spacing: -0.04em;
+      text-transform: uppercase;
+      border: 4px solid var(--text-main);
+      padding: 0.2rem 0.75rem;
+      margin-bottom: 1.25rem;
+      color: var(--text-main);
+    }
+    .links-name {
+      font-family: var(--font-heading);
+      font-weight: 900;
+      font-size: 1.6rem;
+      text-transform: uppercase;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.5rem;
+    }
+    .links-bio {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .links-stripe { width: 100%; margin: 1.5rem 0; }
+    .links-list {
+      list-style: none;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .links-card {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border: 2px solid var(--border-color);
+      background: var(--card-bg);
+      color: var(--text-main);
+      text-decoration: none;
+      transition: background var(--transition), transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: var(--shadow);
+    }
+    .links-card:hover {
+      background: var(--text-main);
+      color: var(--bg-paper);
+      transform: translate(-2px, -2px);
+      box-shadow: 4px 4px 0 var(--border-color);
+    }
+    .links-card--primary {
+      border-color: var(--accent-green);
+      border-width: 3px;
+    }
+    .links-card--primary:hover { background: var(--accent-green); color: #fff; }
+    .links-card-icon {
+      font-size: 1.25rem;
+      flex-shrink: 0;
+      width: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .links-card-text {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+    }
+    .links-card-text strong {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .links-card-text span {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      opacity: 0.7;
+    }
+    .links-card-arrow {
+      font-family: var(--font-heading);
+      font-weight: 900;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .links-footer {
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .links-theme-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+    }
+    .links-theme-toggle:hover { color: var(--text-main); }
+  </style>
+</head>
+<body>
+  <main>
+    {{- block "main" . }}{{- end }}
+  </main>
+  <script src="{{ "js/main.js" | absURL }}" defer></script>
+</body>
+</html>
