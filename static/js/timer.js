@@ -24,6 +24,7 @@
   var lastSession = null; // for post-stop trimming UI
   var selectedId = null;
   var deletingSessionId = null;
+  var privacyMode = false;
 
   // --- DOM ---
   var $panel = document.getElementById('project-panel');
@@ -53,6 +54,19 @@
     return h + 'h ' + m + 'm';
   }
   function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  var _gibCache = {};
+  function gibberish(str) {
+    if (!str) return '';
+    if (_gibCache[str]) return _gibCache[str];
+    var chars = 'abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*+=<>?/~|_';
+    var out = '';
+    for (var i = 0; i < str.length; i++) {
+      out += str[i] === ' ' ? ' ' : chars[Math.floor(Math.random() * chars.length)];
+    }
+    _gibCache[str] = out;
+    return out;
+  }
+  function displayName(str) { return privacyMode ? gibberish(str) : str; }
   function dk(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
   function getProj(id) { return projects.find(function (p) { return p.id === id; }); }
   function getSub(proj, sid) { return proj && proj.subs ? proj.subs.find(function (s) { return s.id === sid; }) : null; }
@@ -106,6 +120,7 @@
     renderPanel();
     renderBanner();
     renderLastSession();
+    updateHint();
   }
 
   function togglePause() {
@@ -154,6 +169,7 @@
     renderBanner();
     renderCalendar();
     renderLastSession();
+    updateHint();
   }
 
   function startTick() { stopTick(); tick(); tickInterval = setInterval(tick, 1000); }
@@ -168,32 +184,40 @@
       if (remaining <= 0) {
         remaining = 0;
         if (!active.paused) {
-          // Gentle bird chirp alarm
+          // Gentle bird chirp alarm — 3 bursts
           try {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
             var now = ctx.currentTime;
-            
+
             function chirp(time) {
               var osc = ctx.createOscillator();
               var gain = ctx.createGain();
               osc.connect(gain);
               gain.connect(ctx.destination);
-              
               osc.type = 'sine';
               osc.frequency.setValueAtTime(3500, time);
               osc.frequency.exponentialRampToValueAtTime(1800, time + 0.15);
-              
               gain.gain.setValueAtTime(0, time);
-              gain.gain.linearRampToValueAtTime(0.3, time + 0.02);
+              gain.gain.linearRampToValueAtTime(0.35, time + 0.02);
               gain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
               gain.gain.linearRampToValueAtTime(0, time + 0.15);
-              
               osc.start(time);
               osc.stop(time + 0.15);
             }
-            
+
+            // Burst 1
             chirp(now);
             chirp(now + 0.25);
+            chirp(now + 0.50);
+            // Burst 2 (after pause)
+            chirp(now + 1.0);
+            chirp(now + 1.25);
+            chirp(now + 1.50);
+            // Burst 3
+            chirp(now + 2.2);
+            chirp(now + 2.45);
+            chirp(now + 2.70);
+            chirp(now + 2.95);
           } catch(e) {}
           stopTimer();
           return;
@@ -222,8 +246,9 @@
     if (!active) { $banner.style.display = 'none'; document.title = 'Timer'; return; }
     var proj = getProj(active.projectId);
     var sub = active.subprojectId ? getSub(proj, active.subprojectId) : null;
-    var name = proj ? proj.name : '?';
-    if (sub) name += ' / ' + sub.name;
+    var projName = proj ? proj.name : '?';
+    var subName = sub ? sub.name : null;
+    var name = displayName(projName) + (subName ? ' / ' + displayName(subName) : '');
     $activeDot.style.background = proj ? proj.color : '#888';
     $activeName.textContent = name;
     
@@ -246,6 +271,32 @@
 
   if ($activePlayPause) $activePlayPause.addEventListener('click', togglePause);
   $activeStop.addEventListener('click', stopTimer);
+
+  // --- Privacy Toggle ---
+  var $privacyBtn = document.getElementById('btn-privacy');
+  var $privacyIcon = document.getElementById('privacy-icon');
+  var $privacyLabel = document.getElementById('privacy-label');
+  if ($privacyBtn) {
+    $privacyBtn.addEventListener('click', function () {
+      privacyMode = !privacyMode;
+      _gibCache = {}; // fresh gibberish each toggle
+      var eyeOn  = document.getElementById('icon-eye');
+      var eyeOff = document.getElementById('icon-eye-off');
+      if (eyeOn)  eyeOn.style.display  = privacyMode ? 'none' : '';
+      if (eyeOff) eyeOff.style.display = privacyMode ? ''     : 'none';
+      $privacyLabel.textContent = privacyMode ? 'Reveal' : 'Privacy';
+      renderPanel();
+      renderBanner();
+      renderCalendar();
+    });
+  }
+
+  // --- Hint ---
+  function updateHint() {
+    var $hint = document.getElementById('tt-hint');
+    if (!$hint) return;
+    $hint.style.display = (!active && projects.filter(function(p){return !p.archived;}).length > 0) ? '' : 'none';
+  }
 
   // --- Project Panel ---
   function renderPanel() {
@@ -276,7 +327,7 @@
         var isSelected = selectedId === p.id;
         html += '<div class="tt-row tt-row-selectable' + (isActive ? ' tt-row-active' : '') + (isSelected ? ' tt-row-selected' : '') + '" data-timer-id="' + p.id + '" data-select="' + p.id + '" style="cursor:pointer;">';
         html += '<span class="timer-project-dot" style="background:' + p.color + '"></span>';
-        html += '<span class="tt-row-name">' + esc(p.name) + '</span>';
+        html += '<span class="tt-row-name">' + esc(displayName(p.name)) + '</span>';
         var el = active && active.projectId === p.id && !active.subprojectId ? 
           active.elapsed + (active.paused ? 0 : Date.now() - active.start) : 0;
         
@@ -345,7 +396,7 @@
             
             html += '<span class="tt-sub-indent"></span>';
             html += '<span class="timer-project-dot tt-dot-sm" style="background:' + p.color + '; opacity:0.6"></span>';
-            html += '<span class="tt-row-name">' + esc(s.name) + '</span>';
+            html += '<span class="tt-row-name">' + esc(displayName(s.name)) + '</span>';
             var elSub = active && active.projectId === p.id && active.subprojectId === s.id ? 
               active.elapsed + (active.paused ? 0 : Date.now() - active.start) : 0;
               
@@ -616,6 +667,13 @@
     }
   });
 
+  // Auto-select countdown input text on focus so it can be replaced immediately
+  $panel.addEventListener('focusin', function (e) {
+    if (e.target.tagName === 'INPUT' && e.target.type === 'number' && e.target.id && e.target.id.startsWith('countdown-')) {
+      e.target.select();
+    }
+  });
+
   function saveNewProject() {
     var $name = document.getElementById('new-project-name');
     var $color = document.getElementById('new-project-color');
@@ -828,8 +886,8 @@
           var width = ((se - ss) / 3600000) * 100;
           var proj = getProj(s.projectId);
           var sub = getSub(proj, s.subprojectId);
-          var label = proj ? proj.name : '?';
-          if (sub) label += ' / ' + sub.name;
+          var label = displayName(proj ? proj.name : '?');
+          if (sub) label += ' / ' + displayName(sub.name);
           var isLive = s.id === '__live__';
           blocks.push({ left: left, width: Math.max(width, 1), color: proj ? proj.color : '#888', name: label, live: isLive });
 
@@ -906,7 +964,7 @@
     var topProjName = '-';
     if (topProjId) {
       var p = getProj(topProjId);
-      topProjName = p ? p.name : 'Unknown';
+      topProjName = displayName(p ? p.name : 'Unknown');
     }
     if (topProjName.length > 15) {
       topProjName = topProjName.substring(0, 15) + '...';
@@ -946,7 +1004,7 @@
         var pct = (projTotals[pid] / totalMs) * 100;
         var p = getProj(pid);
         var color = p ? p.color : '#888';
-        var name = p ? esc(p.name) : 'Unknown';
+        var name = p ? esc(displayName(p.name)) : 'Unknown';
         html += '<div style="width: ' + pct + '%; background: ' + color + ';" title="' + name + ': ' + fmtShort(projTotals[pid]) + '"></div>';
       });
       html += '</div>';
@@ -1015,7 +1073,7 @@
         projIds.forEach(function (pid) {
           var proj = getProj(pid);
           var pct = (dd.byProj[pid] / dd.total) * 100;
-          html += '<div class="tt-week-bar-seg" style="height:' + pct + '%;background:' + (proj ? proj.color : '#888') + ';" title="' + (proj ? esc(proj.name) : '?') + ': ' + fmtShort(dd.byProj[pid]) + '"></div>';
+          html += '<div class="tt-week-bar-seg" style="height:' + pct + '%;background:' + (proj ? proj.color : '#888') + ';" title="' + (proj ? esc(displayName(proj.name)) : '?') + ': ' + fmtShort(dd.byProj[pid]) + '"></div>';
         });
         html += '</div>';
       }
@@ -1132,8 +1190,8 @@
       var proj = getProj(s.projectId);
       var sub = proj ? getSub(proj, s.subprojectId) : null;
       var color = proj ? proj.color : '#888';
-      var name = proj ? esc(proj.name) : 'Deleted';
-      if (sub) name += ' / ' + esc(sub.name);
+      var name = proj ? esc(displayName(proj.name)) : 'Deleted';
+      if (sub) name += ' / ' + esc(displayName(sub.name));
       var start = new Date(s.start);
       var end = new Date(s.end);
       
@@ -1194,8 +1252,8 @@
     var s = lastSession;
     var proj = getProj(s.projectId);
     var sub = proj ? getSub(proj, s.subprojectId) : null;
-    var name = proj ? esc(proj.name) : 'Unknown';
-    if (sub) name += ' / ' + esc(sub.name);
+    var name = proj ? esc(displayName(proj.name)) : 'Unknown';
+    if (sub) name += ' / ' + esc(displayName(sub.name));
     var startTime = new Date(s.start);
     var endTime = new Date(s.end);
     
@@ -1534,5 +1592,6 @@
   renderBanner();
   renderCalendar();
   renderLastSession();
+  updateHint();
 
 })();

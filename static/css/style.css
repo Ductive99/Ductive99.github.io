@@ -785,8 +785,22 @@ p { margin-bottom: 1rem; }
   font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
   transition: background var(--transition);
 }
-.tt-row-selectable:hover { background: rgba(0,0,0,0.03); }
+.tt-row-selectable {
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.tt-row-selectable:hover {
+  background: var(--bg-surface);
+  box-shadow: inset 3px 0 0 var(--accent-green);
+  cursor: pointer;
+}
+.tt-row-selectable:hover .tt-row-name::after {
+  content: '  ►';
+  font-size: 0.6rem;
+  opacity: 0.4;
+  vertical-align: middle;
+}
 .tt-row-active, .tt-row-selected { background: var(--bg-surface) !important; }
+
 
 .tt-start-panel {
   display: flex;
