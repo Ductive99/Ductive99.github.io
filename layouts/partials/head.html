@@ -8,7 +8,16 @@
 <meta property="og:title" content="{{ .Title }}">
 <meta property="og:description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
 <meta property="og:type" content="{{ if .IsPage }}article{{ else }}website{{ end }}">
-<meta property="og:url" content="{{ .Permalink }}">
+{{ $canonical := .Permalink }}
+{{ $subdomains := dict "timer" "timer.elhoussain.me" "blog" "blog.elhoussain.me" "library" "library.elhoussain.me" "links" "links.elhoussain.me" }}
+{{ if isset $subdomains .Section }}
+  {{ $subdomain := index $subdomains .Section }}
+  {{ $toReplace := printf "%s%s/" .Site.BaseURL .Section }}
+  {{ $canonical = replace .Permalink $toReplace (printf "https://%s/" $subdomain) }}
+{{ end }}
+
+<link rel="canonical" href="{{ $canonical }}">
+<meta property="og:url" content="{{ $canonical }}">
 <meta property="og:image" content="{{ .Site.BaseURL }}images/og-image.png">
 <meta property="og:image:width" content="1024">
 <meta property="og:image:height" content="1024">
