@@ -165,6 +165,7 @@
     save('tt_active', active);
     stopTick();
     document.title = 'Timer';
+    if (focusMode) exitFocus();
     renderPanel();
     renderBanner();
     renderCalendar();
@@ -231,6 +232,7 @@
     }
     
     if ($activeClock) $activeClock.textContent = formatted;
+    if ($focusClock && focusMode) $focusClock.textContent = formatted;
     // Update inline timer on the active row
     var row = document.querySelector('[data-timer-id="' + active.projectId + (active.subprojectId ? ':' + active.subprojectId : '') + '"]');
     if (row) { var t = row.querySelector('.tt-row-clock'); if (t) t.textContent = formatted; }
@@ -297,6 +299,60 @@
     if (!$hint) return;
     $hint.style.display = (!active && projects.filter(function(p){return !p.archived;}).length > 0) ? '' : 'none';
   }
+
+  // --- Focus Mode ---
+  var focusMode = false;
+  var $focusOverlay = document.getElementById('focus-overlay');
+  var $focusClock   = document.getElementById('focus-clock');
+  var $focusName    = document.getElementById('focus-name');
+  var $focusDot     = document.getElementById('focus-dot');
+  var $focusPlay    = document.getElementById('focus-playpause');
+  var $focusStop    = document.getElementById('focus-stop');
+  var $focusExit    = document.getElementById('focus-exit');
+  var $btnFocus     = document.getElementById('btn-focus');
+
+  function updateFocusOverlay() {
+    if (!active || !$focusOverlay) return;
+    var proj = getProj(active.projectId);
+    var sub  = active.subprojectId ? getSub(proj, active.subprojectId) : null;
+    var projName = proj ? proj.name : '?';
+    var subName  = sub ? sub.name : null;
+    $focusName.textContent = displayName(projName) + (subName ? ' / ' + displayName(subName) : '');
+    $focusDot.style.background = proj ? proj.color : '#888';
+    $focusOverlay.classList.toggle('focus-paused', !!active.paused);
+    $focusClock.classList.toggle('focus-ticking', !active.paused);
+    if ($focusPlay) {
+      $focusPlay.innerHTML = active.paused ? '&#9654;' : '&#10074;&#10074;';
+      $focusPlay.title = active.paused ? 'Resume' : 'Pause';
+    }
+  }
+
+  function enterFocus() {
+    if (!active) return;
+    focusMode = true;
+    updateFocusOverlay();
+    $focusOverlay.style.display = 'flex';
+    $focusOverlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('tt-focus-active');
+  }
+
+  function exitFocus() {
+    focusMode = false;
+    if ($focusOverlay) {
+      $focusOverlay.style.display = 'none';
+      $focusOverlay.setAttribute('aria-hidden', 'true');
+    }
+    document.body.classList.remove('tt-focus-active');
+  }
+
+  if ($btnFocus)  $btnFocus.addEventListener('click', enterFocus);
+  if ($focusExit) $focusExit.addEventListener('click', exitFocus);
+  if ($focusPlay) $focusPlay.addEventListener('click', function() { togglePause(); updateFocusOverlay(); });
+  if ($focusStop) $focusStop.addEventListener('click', function() { exitFocus(); stopTimer(); });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && focusMode) exitFocus();
+  });
 
   // --- Project Panel ---
   function renderPanel() {
@@ -453,7 +509,7 @@
     html += '</div>';
 
     if (projects.length === 0) {
-      html = '<p style="color:var(--text-muted); margin-bottom: 1rem;">No projects yet. Add one below.</p>' + html;
+      html = '<p style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">No projects yet. Add one below.</p>' + html;
     }
     $panel.innerHTML = html;
   }
@@ -566,6 +622,7 @@
       }
       deletingId = null;
       renderPanel();
+      updateHint();
       return;
     }
 
@@ -579,6 +636,7 @@
       renderPanel();
       renderBanner();
       renderCalendar();
+      updateHint();
       return;
     }
 
@@ -683,6 +741,7 @@
     projects.push({ id: uid(), name: name, color: $color.value, subs: [] });
     save('tt_projects', projects);
     renderPanel();
+    updateHint();
   }
 
   function saveSubProject(pid, name) {
