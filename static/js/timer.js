@@ -986,6 +986,7 @@
     }
 
     $calView.innerHTML = html;
+    attachInlineTrimDrag();
   }
 
   function buildStatsBanner(dayData, totalMs) {
@@ -1145,6 +1146,7 @@
     html += '</div>';
     html += buildStatsBanner(dayData, weekTotal);
     $calView.innerHTML = html;
+    attachInlineTrimDrag();
   }
 
   // --- Monthly: Calendar grid ---
@@ -1239,9 +1241,67 @@
     html += '</div>';
     html += buildStatsBanner(dayData, monthTotal);
     $calView.innerHTML = html;
+    attachInlineTrimDrag();
   }
 
   // --- Session List ---
+  function buildInlineEditorHtml(s) {
+    var proj = getProj(s.projectId);
+    var sub = proj ? getSub(proj, s.subprojectId) : null;
+    var color = proj ? proj.color : '#888';
+    var name = proj ? esc(displayName(proj.name)) : 'Unknown';
+    if (sub) name += ' / ' + esc(displayName(sub.name));
+    var wallSpan = s.end - s.start;
+    if (wallSpan < 1) wallSpan = 1;
+    var pauseBlocks = [];
+    (s.pauseLog || []).forEach(function(p) {
+      var ps = Math.max(p.start, s.start);
+      var pe = Math.min(p.end || s.end, s.end);
+      if (pe > ps) pauseBlocks.push({ left: ((ps - s.start) / wallSpan) * 100, width: ((pe - ps) / wallSpan) * 100 });
+    });
+    var handlePct = Math.max(1, Math.min(100, ((trimEndMs - s.start) / wallSpan) * 100));
+    function computeDuration(endMs) {
+      var pausedMs = 0;
+      (s.pauseLog || []).forEach(function(p) {
+        var ps = Math.max(p.start, s.start);
+        var pe = Math.min(p.end || endMs, endMs);
+        if (pe > ps) pausedMs += pe - ps;
+      });
+      return Math.max(0, endMs - s.start - pausedMs);
+    }
+    var startTime = new Date(s.start);
+    var endTime = new Date(trimEndMs);
+    var dur = computeDuration(trimEndMs);
+    var h = '<li class="tt-lastsess" style="list-style:none; margin-bottom: -2px;" data-inline-editor="' + s.id + '">';
+    h += '<div class="tt-lastsess-inner">';
+    h += '<span class="timer-project-dot" style="background:' + color + '"></span>';
+    h += '<span class="tt-lastsess-name">Edit: ' + name + '</span>';
+    h += '<button class="tt-row-btn" data-inline-cancel="' + s.id + '" title="Cancel">&times;</button>';
+    h += '</div>';
+    h += '<div class="tt-trim-timeline">';
+    h += '<div class="tt-trim-track" id="inline-trim-track-' + s.id + '">';
+    h += '<div class="tt-trim-track-inner" style="left:0;width:' + handlePct + '%;background:' + color + ';"></div>';
+    pauseBlocks.forEach(function(pb) {
+      h += '<div class="tt-trim-pause-block" style="left:' + pb.left + '%;width:' + pb.width + '%;"></div>';
+    });
+    h += '<div class="tt-trim-cutoff" style="width:' + (100 - handlePct) + '%;right:0;left:auto;"></div>';
+    h += '<div class="tt-trim-handle" id="inline-trim-handle-' + s.id + '" style="left:calc(' + handlePct + '% - 3px);" title="Drag to trim"></div>';
+    h += '</div>';
+    h += '<div class="tt-trim-labels">';
+    h += '<span>' + pad(startTime.getHours()) + ':' + pad(startTime.getMinutes()) + '</span>';
+    h += '<span class="tt-trim-end-label" id="inline-trim-end-' + s.id + '">' + pad(endTime.getHours()) + ':' + pad(endTime.getMinutes()) + '</span>';
+    h += '<span>' + pad(new Date(s.end).getHours()) + ':' + pad(new Date(s.end).getMinutes()) + '</span>';
+    h += '</div></div>';
+    h += '<div class="tt-lastsess-footer">';
+    h += '<span class="tt-lastsess-dur" id="inline-trim-dur-' + s.id + '">' + fmtShort(dur) + '</span>';
+    h += '<div style="display:flex;gap:0.5rem;">';
+    h += '<button class="timer-btn-sm" data-inline-reset="' + s.id + '">Reset</button>';
+    h += '<button class="timer-btn-sm" data-inline-save="' + s.id + '">Save</button>';
+    h += '</div></div>';
+    h += '</li>';
+    return h;
+  }
+
   function renderSessionList(list) {
     var sorted = list.slice().sort(function (a, b) { return b.start - a.start; });
     var html = '<ul class="timer-session-list">';
@@ -1253,7 +1313,13 @@
       if (sub) name += ' / ' + esc(displayName(sub.name));
       var start = new Date(s.start);
       var end = new Date(s.end);
-      
+
+      // Inline editor takes over this row
+      if (editingSession && editingSession.id === s.id && !lastSession) {
+        html += buildInlineEditorHtml(s);
+        return;
+      }
+
       if (deletingSessionId === s.id) {
         html += '<li class="timer-session-item" style="background: var(--accent-red); color: white; flex-wrap: wrap;">';
         html += '<span style="flex:1; font-weight: bold; padding-left: 0.5rem; font-family: var(--font-heading); font-size: 0.8rem; text-transform: uppercase;">Are you sure?</span>';
@@ -1261,7 +1327,7 @@
         html += '<button class="timer-btn-sm" style="background:transparent; color:white; border: 1px solid white; margin-right: 0.5rem;" data-cancel-del-session="1">Cancel</button>';
         html += '</li>';
       } else {
-        html += '<li class="timer-session-item">' +
+        html += '<li class="timer-session-item" data-edit-session="' + s.id + '">' +
           '<span class="timer-project-dot" style="background:' + color + '"></span>' +
           '<span class="timer-session-name">' + name + '</span>' +
           '<span class="timer-session-time">' + pad(start.getHours()) + ':' + pad(start.getMinutes()) + ' - ' + pad(end.getHours()) + ':' + pad(end.getMinutes()) + '</span>' +
@@ -1272,6 +1338,61 @@
     });
     html += '</ul>';
     return html;
+  }
+
+  // Attach drag listeners to an inline editor after render
+  function attachInlineTrimDrag() {
+    if (!editingSession || lastSession) return;
+    var s = editingSession;
+    var wallSpan = s.end - s.start;
+    if (wallSpan < 1) return;
+    var track = document.getElementById('inline-trim-track-' + s.id);
+    var handle = document.getElementById('inline-trim-handle-' + s.id);
+    if (!track || !handle) return;
+
+    function computeDuration(endMs) {
+      var pausedMs = 0;
+      (s.pauseLog || []).forEach(function(p) {
+        var ps = Math.max(p.start, s.start);
+        var pe = Math.min(p.end || endMs, endMs);
+        if (pe > ps) pausedMs += pe - ps;
+      });
+      return Math.max(0, endMs - s.start - pausedMs);
+    }
+
+    function pctFromEvent(e) {
+      var rect = track.getBoundingClientRect();
+      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    }
+    function applyPct(pct) {
+      trimEndMs = Math.max(s.start + 1000, Math.min(s.end, s.start + Math.round(pct * wallSpan)));
+      var newPct = ((trimEndMs - s.start) / wallSpan) * 100;
+      handle.style.left = 'calc(' + newPct + '% - 3px)';
+      var fillBar = track.querySelector('.tt-trim-track-inner');
+      if (fillBar) fillBar.style.width = newPct + '%';
+      var cutoff = track.querySelector('.tt-trim-cutoff');
+      if (cutoff) cutoff.style.width = (100 - newPct) + '%';
+      var endLabel = document.getElementById('inline-trim-end-' + s.id);
+      var durLabel = document.getElementById('inline-trim-dur-' + s.id);
+      var d = new Date(trimEndMs);
+      if (endLabel) endLabel.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+      if (durLabel) durLabel.textContent = fmtShort(computeDuration(trimEndMs));
+    }
+
+    var dragging = false;
+    handle.addEventListener('mousedown', function(e) { e.preventDefault(); dragging = true; });
+    handle.addEventListener('touchstart', function() { dragging = true; }, { passive: true });
+    track.addEventListener('mousedown', function(e) {
+      if (e.target === handle) return;
+      applyPct(pctFromEvent(e)); dragging = true;
+    });
+    var onMove = function(e) { if (dragging) applyPct(pctFromEvent(e)); };
+    var onUp = function() { dragging = false; };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: true });
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
   }
 
   // Calendar click delegation: delete sessions + navigate to day
@@ -1300,86 +1421,257 @@
     var dayEl = e.target.closest('[data-goto-day]');
     if (dayEl) {
       goToDay(dayEl.getAttribute('data-goto-day'));
+      return;
+    }
+    // Inline editor: cancel
+    var cancelBtn = e.target.closest('[data-inline-cancel]');
+    if (cancelBtn) {
+      editingSession = null;
+      renderCalendar();
+      return;
+    }
+    // Inline editor: reset
+    var resetBtn = e.target.closest('[data-inline-reset]');
+    if (resetBtn) {
+      if (editingSession) { trimEndMs = editingSession.end; renderCalendar(); }
+      return;
+    }
+    // Inline editor: save
+    var saveBtn = e.target.closest('[data-inline-save]');
+    if (saveBtn) {
+      if (editingSession) {
+        var sess = sessions.find(function(s) { return s.id === editingSession.id; });
+        if (sess && trimEndMs < sess.end && trimEndMs > sess.start) {
+          sess.end = trimEndMs;
+          var pausedMs = 0;
+          (sess.pauseLog || []).forEach(function(p) {
+            var ps = Math.max(p.start, sess.start);
+            var pe = Math.min(p.end || trimEndMs, trimEndMs);
+            if (pe > ps) pausedMs += pe - ps;
+          });
+          sess.duration = Math.max(0, trimEndMs - sess.start - pausedMs);
+          if (sess.pauseLog) {
+            sess.pauseLog = sess.pauseLog.filter(function(p) { return p.start < trimEndMs; });
+            sess.pauseLog.forEach(function(p) { if (p.end > trimEndMs) p.end = trimEndMs; });
+          }
+          save('tt_sessions', sessions);
+        }
+      }
+      editingSession = null;
+      renderCalendar();
+      return;
+    }
+    // Click on a session row to open inline editor
+    var sessItem = e.target.closest('[data-edit-session]');
+    if (sessItem && !e.target.closest('[data-del-session]')) {
+      var sessId = sessItem.getAttribute('data-edit-session');
+      var sess = sessions.find(function(s) { return s.id === sessId; });
+      if (sess) openSessionEditor(sess);
     }
   });
 
-  // --- Last Session Trim UI ---
-  function renderLastSession() {
-    var $ls = document.getElementById('last-session-trim');
-    if (!$ls) return;
-    if (!lastSession) { $ls.style.display = 'none'; return; }
-    var s = lastSession;
-    var proj = getProj(s.projectId);
-    var sub = proj ? getSub(proj, s.subprojectId) : null;
-    var name = proj ? esc(displayName(proj.name)) : 'Unknown';
-    if (sub) name += ' / ' + esc(displayName(sub.name));
-    var startTime = new Date(s.start);
-    var endTime = new Date(s.end);
-    
-    // Slider range in seconds from start
-    var totalSeconds = Math.floor((s.end - s.start) / 1000);
-    if (totalSeconds < 1) totalSeconds = 1;
+  // --- Session Editor (replaces old "last session trim") ---
+  var editingSession = null; // the session being edited in the trim panel
+  var trimEndMs = null;      // current trimmed end timestamp
 
-    var html = '<div class="tt-lastsess-inner">';
-    html += '<span class="timer-project-dot" style="background:' + (proj ? proj.color : '#888') + '"></span>';
-    html += '<span class="tt-lastsess-name">Last Session: ' + name + '</span>';
-    html += '<button class="tt-row-btn" id="trim-dismiss" title="Dismiss">&times;</button>';
-    html += '</div>';
-    html += '<div class="tt-lastsess-slider">';
-    html += '<span class="tt-lastsess-label">' + pad(startTime.getHours()) + ':' + pad(startTime.getMinutes()) + '</span>';
-    html += '<input type="range" id="trim-slider" class="tt-trim-range" min="1" max="' + totalSeconds + '" value="' + totalSeconds + '" step="1">';
-    html += '<span class="tt-lastsess-label" id="trim-end-label">' + pad(endTime.getHours()) + ':' + pad(endTime.getMinutes()) + '</span>';
-    html += '</div>';
-    html += '<div class="tt-lastsess-footer">';
-    html += '<span class="tt-lastsess-dur" id="trim-dur-label">' + fmtShort(s.duration) + '</span>';
-    html += '<button class="timer-btn-sm" id="trim-done">Done</button>';
-    html += '</div>';
-    $ls.innerHTML = html;
-    $ls.style.display = '';
-
-    // Live update labels on slider input
-    var slider = document.getElementById('trim-slider');
-    if (slider) {
-      slider.addEventListener('input', function() {
-        var secs = parseInt(slider.value);
-        var newEndMs = s.start + secs * 1000;
-        var d = new Date(newEndMs);
-        var endLabel = document.getElementById('trim-end-label');
-        var durLabel = document.getElementById('trim-dur-label');
-        if (endLabel) endLabel.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
-        if (durLabel) durLabel.textContent = fmtShort(newEndMs - s.start);
-      });
+  function openSessionEditor(sess) {
+    editingSession = sess;
+    trimEndMs = sess.end;
+    // For last session → use the tt-lastsess panel (lastSession still set)
+    // For list sessions → inline within the session list
+    if (lastSession && lastSession.id === sess.id) {
+      renderLastSession();
+      var $ls = document.getElementById('last-session-trim');
+      if ($ls) $ls.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      renderCalendar();
     }
   }
 
-  // Trim handler (via event delegation on the container)
+  function renderLastSession() {
+    var $ls = document.getElementById('last-session-trim');
+    if (!$ls) return;
+
+    // Backward-compat: if lastSession is set but editingSession isn't, open it
+    if (lastSession && !editingSession) {
+      editingSession = lastSession;
+      trimEndMs = lastSession.end;
+    }
+
+    if (!editingSession) { $ls.style.display = 'none'; return; }
+
+    var s = editingSession;
+    var proj = getProj(s.projectId);
+    var sub = proj ? getSub(proj, s.subprojectId) : null;
+    var color = proj ? proj.color : '#888';
+    var name = proj ? esc(displayName(proj.name)) : 'Unknown';
+    if (sub) name += ' / ' + esc(displayName(sub.name));
+
+    var wallSpan = s.end - s.start; // total wall-clock ms
+    if (wallSpan < 1) wallSpan = 1;
+
+    // Build pause blocks as % of wall span
+    var pauseBlocks = [];
+    (s.pauseLog || []).forEach(function(p) {
+      var ps = Math.max(p.start, s.start);
+      var pe = Math.min(p.end || s.end, s.end);
+      if (pe > ps) {
+        pauseBlocks.push({
+          left: ((ps - s.start) / wallSpan) * 100,
+          width: ((pe - ps) / wallSpan) * 100
+        });
+      }
+    });
+
+    // Handle position as % of wall span
+    var handlePct = ((trimEndMs - s.start) / wallSpan) * 100;
+    handlePct = Math.max(1, Math.min(100, handlePct));
+
+    // Duration = trimmed end - start - paused time that falls within trimmed range
+    function computeDuration(endMs) {
+      var pausedMs = 0;
+      (s.pauseLog || []).forEach(function(p) {
+        var ps = Math.max(p.start, s.start);
+        var pe = Math.min(p.end || endMs, endMs);
+        if (pe > ps) pausedMs += pe - ps;
+      });
+      return Math.max(0, endMs - s.start - pausedMs);
+    }
+
+    var startTime = new Date(s.start);
+    var endTime   = new Date(trimEndMs);
+    var dur = computeDuration(trimEndMs);
+
+    var isLastSess = lastSession && lastSession.id === s.id;
+
+    var html = '<div class="tt-lastsess-inner">';
+    html += '<span class="timer-project-dot" style="background:' + color + '"></span>';
+    html += '<span class="tt-lastsess-name">' + (isLastSess ? 'Last Session: ' : 'Edit Session: ') + name + '</span>';
+    html += '<button class="tt-row-btn" id="trim-dismiss" title="Dismiss">&times;</button>';
+    html += '</div>';
+
+    // Visual timeline
+    html += '<div class="tt-trim-timeline">';
+    html += '<div class="tt-trim-track" id="trim-track">';
+    // Session fill bar
+    html += '<div class="tt-trim-track-inner" style="left:0;width:' + handlePct + '%;background:' + color + ';"></div>';
+    // Pause blocks
+    pauseBlocks.forEach(function(pb) {
+      html += '<div class="tt-trim-pause-block" style="left:' + pb.left + '%;width:' + pb.width + '%;"></div>';
+    });
+    // Cutoff overlay (grey area to the right of handle)
+    html += '<div class="tt-trim-cutoff" style="width:' + (100 - handlePct) + '%;right:0;left:auto;"></div>';
+    // Draggable handle
+    html += '<div class="tt-trim-handle" id="trim-handle" style="left:calc(' + handlePct + '% - 3px);" title="Drag to trim end time"></div>';
+    html += '</div>'; // track
+
+    html += '<div class="tt-trim-labels">';
+    html += '<span>' + pad(startTime.getHours()) + ':' + pad(startTime.getMinutes()) + '</span>';
+    html += '<span class="tt-trim-end-label" id="trim-end-label">' + pad(endTime.getHours()) + ':' + pad(endTime.getMinutes()) + '</span>';
+    html += '<span>' + pad(new Date(s.end).getHours()) + ':' + pad(new Date(s.end).getMinutes()) + '</span>';
+    html += '</div>';
+    html += '</div>'; // timeline
+
+    html += '<div class="tt-lastsess-footer">';
+    html += '<span class="tt-lastsess-dur" id="trim-dur-label">' + fmtShort(dur) + '</span>';
+    html += '<div style="display:flex;gap:0.5rem;">';
+    html += '<button class="timer-btn-sm" id="trim-reset" title="Reset to original end">Reset</button>';
+    html += '<button class="timer-btn-sm" id="trim-done">Save</button>';
+    html += '</div>';
+    html += '</div>';
+
+    $ls.innerHTML = html;
+    $ls.style.display = '';
+
+    // --- Drag logic ---
+    var track = document.getElementById('trim-track');
+    var handle = document.getElementById('trim-handle');
+    if (!track || !handle) return;
+
+    function pctFromEvent(e) {
+      var rect = track.getBoundingClientRect();
+      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    }
+
+    function applyPct(pct) {
+      trimEndMs = s.start + Math.round(pct * wallSpan);
+      trimEndMs = Math.max(s.start + 1000, Math.min(s.end, trimEndMs));
+      var newPct = ((trimEndMs - s.start) / wallSpan) * 100;
+      handle.style.left = 'calc(' + newPct + '% - 3px)';
+      // Update fill bar
+      var fillBar = track.querySelector('.tt-trim-track-inner');
+      if (fillBar) fillBar.style.width = newPct + '%';
+      // Update cutoff
+      var cutoff = track.querySelector('.tt-trim-cutoff');
+      if (cutoff) cutoff.style.width = (100 - newPct) + '%';
+      // Update labels
+      var d = new Date(trimEndMs);
+      var endLabel = document.getElementById('trim-end-label');
+      var durLabel = document.getElementById('trim-dur-label');
+      if (endLabel) endLabel.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+      if (durLabel) durLabel.textContent = fmtShort(computeDuration(trimEndMs));
+    }
+
+    var dragging = false;
+    handle.addEventListener('mousedown', function(e) { e.preventDefault(); dragging = true; });
+    handle.addEventListener('touchstart', function(e) { dragging = true; }, { passive: true });
+
+    // Also allow clicking anywhere on the track to jump the handle
+    track.addEventListener('mousedown', function(e) {
+      if (e.target === handle) return;
+      applyPct(pctFromEvent(e));
+      dragging = true;
+    });
+
+    document.addEventListener('mousemove', function onMove(e) {
+      if (!dragging) return;
+      applyPct(pctFromEvent(e));
+    });
+    document.addEventListener('touchmove', function onTouchMove(e) {
+      if (!dragging) return;
+      applyPct(pctFromEvent(e));
+    }, { passive: true });
+    document.addEventListener('mouseup', function onUp() { dragging = false; });
+    document.addEventListener('touchend', function onTouchEnd() { dragging = false; });
+  }
+
+  // Trim / session editor event delegation
   var $lsContainer = document.getElementById('last-session-trim');
   if ($lsContainer) {
     $lsContainer.addEventListener('click', function(e) {
       if (e.target.id === 'trim-dismiss') {
+        editingSession = null;
         lastSession = null;
         renderLastSession();
         return;
       }
+      if (e.target.id === 'trim-reset') {
+        if (editingSession) { trimEndMs = editingSession.end; renderLastSession(); }
+        return;
+      }
       if (e.target.id === 'trim-done') {
-        var slider = document.getElementById('trim-slider');
-        if (!slider || !lastSession) return;
-        var secs = parseInt(slider.value);
-        var newEndMs = lastSession.start + secs * 1000;
-        // Only apply if actually reduced
-        if (newEndMs < lastSession.end && newEndMs > lastSession.start) {
-          var sess = sessions.find(function(s) { return s.id === lastSession.id; });
-          if (sess) {
-            sess.end = newEndMs;
-            sess.duration = sess.end - sess.start;
-            if (sess.pauseLog) {
-              sess.pauseLog = sess.pauseLog.filter(function(p) { return p.start < newEndMs; });
-              sess.pauseLog.forEach(function(p) { if (p.end > newEndMs) p.end = newEndMs; });
-            }
-            save('tt_sessions', sessions);
-            renderCalendar();
+        if (!editingSession) return;
+        var sess = sessions.find(function(s) { return s.id === editingSession.id; });
+        if (sess && trimEndMs < sess.end && trimEndMs > sess.start) {
+          sess.end = trimEndMs;
+          // Recompute duration accounting for pauses
+          var pausedMs = 0;
+          (sess.pauseLog || []).forEach(function(p) {
+            var ps = Math.max(p.start, sess.start);
+            var pe = Math.min(p.end || trimEndMs, trimEndMs);
+            if (pe > ps) pausedMs += pe - ps;
+          });
+          sess.duration = Math.max(0, trimEndMs - sess.start - pausedMs);
+          // Clip pauses
+          if (sess.pauseLog) {
+            sess.pauseLog = sess.pauseLog.filter(function(p) { return p.start < trimEndMs; });
+            sess.pauseLog.forEach(function(p) { if (p.end > trimEndMs) p.end = trimEndMs; });
           }
+          save('tt_sessions', sessions);
+          renderCalendar();
         }
+        editingSession = null;
         lastSession = null;
         renderLastSession();
         return;
