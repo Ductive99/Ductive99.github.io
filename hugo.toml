@@ -8,6 +8,23 @@ title = "El Houssain Souhail"
   description = "Software Engineer Student @42Paris"
   author = "El Houssain Souhail"
 
+  # Used by the home hero, the footer and the links page.
+  [[params.social]]
+    name = "GitHub"
+    handle = "@ductive99"
+    note = "Open source projects and code"
+    url = "https://github.com/ductive99"
+  [[params.social]]
+    name = "GitLab"
+    handle = "@elhoussain"
+    note = "Open source projects and code"
+    url = "https://gitlab.com/elhoussain"
+    new = true
+  [[params.social]]
+    name = "LinkedIn"
+    note = "Professional profile and experience"
+    url = "https://linkedin.com/in/elhoussain"
+
 [taxonomies]
   tag = "tags"
   category = "categories"
@@ -29,7 +46,7 @@ title = "El Houssain Souhail"
     codeFences = true
     guessSyntax = true
     lineNos = false
-    style = "monokai"
+    noClasses = false
 
 [outputs]
   home = ["HTML"]

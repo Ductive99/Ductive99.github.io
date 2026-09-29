@@ -1,0 +1,8 @@
+<li class="post-row"{{ with .Params.tags }} data-tags="{{ delimit . "," }}"{{ end }}>
+  <time class="post-date" datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "2 Jan 2006" }}</time>
+  <div class="post-main">
+    <a class="post-title" href="{{ .RelPermalink }}">{{ .Title }}</a>
+    {{ with .Description }}<p class="post-desc">{{ . }}</p>{{ else }}<p class="post-desc">{{ .Summary | plainify | truncate 160 }}</p>{{ end }}
+    {{ with .GetTerms "tags" }}<p class="tags">{{ range . }}<a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a>{{ end }}</p>{{ end }}
+  </div>
+</li>

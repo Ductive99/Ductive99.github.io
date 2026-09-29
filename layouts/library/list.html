@@ -1,70 +1,43 @@
 {{ define "main" }}
-<div class="page-container">
+{{ $books := .Site.Data.books }}
+{{ $meta := "" }}
+{{ with $books }}{{ $meta = printf "%d %s" (len .) (cond (eq (len .) 1) "book" "books") }}{{ end }}
+{{ partial "masthead.html" (dict "page" . "meta" $meta) }}
 
-  <div class="section-header">
-    <h1>Library</h1>
-    {{ $books := .Site.Data.books }}
-    {{ with $books }}
-    <span class="section-count">{{ len . }} books</span>
-    {{ end }}
-  </div>
-
-  {{ $books := .Site.Data.books }}
-  {{ if $books }}
-  <!-- Category Filter Bar -->
-  {{ $allCats := slice }}
-  {{ range $books }}
-    {{ range .categories }}
-      {{ $allCats = $allCats | append . }}
-    {{ end }}
-  {{ end }}
-  {{ $uniqueCats := uniq $allCats }}
-
-  {{ if $uniqueCats }}
-  <div class="filter-bar" id="book-filters">
-    <button class="filter-btn active" data-category="all">All</button>
-    {{ range $uniqueCats }}
-    <button class="filter-btn" data-category="{{ . }}">{{ . }}</button>
-    {{ end }}
+<div class="wrap section">
+  {{ with $books }}
+  {{ $cats := slice }}
+  {{ range . }}{{ range .categories }}{{ $cats = $cats | append . }}{{ end }}{{ end }}
+  {{ with uniq $cats }}
+  <div class="filter-bar" data-filter=".book" role="group" aria-label="Filter books by category">
+    <button class="toggle" data-value="all" aria-pressed="true">All</button>
+    {{ range . }}<button class="toggle" data-value="{{ . }}" aria-pressed="false">{{ humanize . }}</button>{{ end }}
   </div>
   {{ end }}
 
-  <!-- Books Grid -->
-  <div class="books-grid">
-    {{ range $books }}
-    <article class="book-card" data-categories="{{ delimit .categories "," }}" data-hidden="false">
-      {{ with .cover }}
-      <img class="book-cover" src="{{ . }}" alt="Book cover" loading="lazy">
-      {{ end }}
-      <div class="book-card-body">
-        <h3 class="book-title">{{ .title }}</h3>
-        {{ with .author }}
-        <p class="book-author">{{ . }}</p>
-        {{ end }}
+  <div class="books">
+    {{ range . }}
+    {{ $title := .title }}
+    <article class="book frame"{{ with .categories }} data-tags="{{ delimit . "," }}"{{ end }}>
+      {{ with .cover }}<img class="book-cover dither" src="{{ . }}" alt="Cover of {{ $title }}" loading="lazy">{{ end }}
+      <div class="book-body">
+        <h2>{{ .title }}</h2>
+        {{ with .author }}<p class="book-author">{{ . }}</p>{{ end }}
         {{ with .rating }}
-        <div class="book-rating">
-          {{ $r := int . }}
-          {{ range seq $r }}★{{ end }}{{ $empty := sub 5 $r }}{{ range seq $empty }}☆{{ end }}
-          <span style="margin-left:0.25rem; color: var(--text-muted); font-size:0.75rem;">{{ . }}/5</span>
-        </div>
+        {{ $r := int . }}
+        <p class="readout" aria-label="Rated {{ $r }} out of 5">
+          <span class="meter" aria-hidden="true">{{ range seq 5 }}<i{{ if le . $r }} class="on"{{ end }}></i>{{ end }}</span>
+          <span class="readout-value">{{ $r }}/5</span>
+        </p>
         {{ end }}
-        {{ with .review }}
-        <p class="book-review">{{ . }}</p>
-        {{ end }}
-        {{ with .categories }}
-        <div class="book-categories">
-          {{ range . }}
-          <span class="book-category-tag">{{ . }}</span>
-          {{ end }}
-        </div>
-        {{ end }}
+        {{ with .review }}<p class="book-review">{{ . }}</p>{{ end }}
+        {{ with .categories }}<p class="book-cats">{{ delimit . ", " }}</p>{{ end }}
       </div>
     </article>
     {{ end }}
   </div>
   {{ else }}
-  <p style="font-family: var(--font-mono); font-size: 0.9rem; color: var(--text-muted); margin-top: 1rem;">Books will be added to the library.</p>
+  <p class="frame empty">Books will be added to the library.</p>
   {{ end }}
-
 </div>
 {{ end }}

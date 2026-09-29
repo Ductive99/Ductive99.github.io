@@ -1,128 +1,98 @@
 {{ define "main" }}
-<div class="page-container">
-
-  <div class="section-header" style="align-items: center;">
-    <div style="display:flex; align-items:baseline; gap: 1rem;">
-      <h1 style="margin: 0;">Timer</h1>
-      <span class="section-count" id="total-today">0h 0m today</span>
+<header class="masthead">
+  <canvas class="art" data-seed="{{ hash.FNV32a .Title }}" data-density="-0.08" aria-hidden="true"></canvas>
+  <div class="wrap masthead-inner">
+    <div class="masthead-text" data-void>
+      <h1>Timer</h1>
+      <p class="dim" id="total-today">0h 0m today</p>
+      <button id="btn-privacy" class="light" aria-pressed="false" title="Scramble project names on screen">Privacy</button>
     </div>
-    <button id="btn-privacy" class="filter-btn" style="padding: 0.25rem 0.75rem; font-size: 0.7rem; margin: 0; display:flex; align-items:center; gap: 0.4rem;" title="Toggle privacy mode">
-      <span id="privacy-icon">
-        <svg id="icon-eye" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-        <svg id="icon-eye-off" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-          <line x1="1" y1="1" x2="23" y2="23"/>
-        </svg>
-      </span>
-      <span id="privacy-label">Privacy</span>
-    </button>
-    <!-- <div style="display:flex; gap: 0.5rem; align-items:center;">
-      <button id="btn-export-data" class="filter-btn" style="padding: 0.25rem 0.6rem; font-size: 0.7rem; margin: 0;">Export</button>
-      <label class="filter-btn" style="padding: 0.25rem 0.6rem; font-size: 0.7rem; cursor: pointer; margin: 0;">
-        Import
-        <input type="file" id="btn-import-data" accept=".json" style="display: none;">
-      </label>
-    </div> -->
   </div>
-  <p id="tt-hint" style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); margin: 0.5rem 0 1rem; display:none;">↑ Select a project to start tracking</p>
+</header>
 
-  <!-- Active Timer Banner -->
-  <div class="tt-active-banner" id="active-banner" style="display:none;">
+<div class="wrap section">
+  <p id="tt-hint" class="tt-hint" hidden>&uarr; Select a project to start tracking</p>
+
+  <!-- Active timer -->
+  <div class="tt-active-banner frame" id="active-banner" style="display:none;">
     <span class="tt-active-dot" id="active-dot"></span>
     <span class="tt-active-name" id="active-name"></span>
-    <span class="tt-active-clock" id="active-clock">00:00:00</span>
-    <button class="timer-btn tt-active-playpause" id="active-playpause" title="Pause">&#10074;&#10074;</button>
-    <button class="timer-btn tt-active-stop" id="active-stop" title="Stop">&#9632;</button>
-    <button class="timer-btn tt-btn-focus" id="btn-focus" title="Focus mode" style="margin-left: auto;">
-      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
-        <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
-      </svg>
-    </button>
+    <span class="tt-active-status" id="active-status" hidden>Paused</span>
+    <canvas class="big" id="active-clock" data-px="3" role="img" aria-label="00:00:00"></canvas>
+    <div class="tt-active-controls">
+      <button class="timer-btn tt-active-playpause" id="active-playpause" title="Pause"><i class="ic ic-pause"></i></button>
+      <button class="timer-btn tt-active-stop" id="active-stop" title="Stop"><i class="ic ic-stop"></i></button>
+      <button class="timer-btn tt-btn-focus" id="btn-focus" title="Focus mode"><i class="ic ic-focus"></i></button>
+    </div>
   </div>
 
-  <!-- Project Panel -->
-  <section class="tt-panel" id="project-panel"></section>
+  <!-- Projects -->
+  <section class="tt-panel frame" id="project-panel" aria-label="Projects"></section>
+  <datalist id="c64-palette">
+    {{ range slice "#67b6bd" "#7869c4" "#94e089" "#bfce72" "#b86962" "#8b3f96" "#55a049" "#40318d" "#883932" "#8b5429" "#574200" "#9f9f9f" "#787878" "#505050" "#ffffff" }}<option value="{{ . }}"></option>{{ end }}
+  </datalist>
 
-  <!-- Last Session Trim -->
-  <div class="tt-lastsess" id="last-session-trim" style="display:none;"></div>
+  <!-- Last session / session editor -->
+  <div class="tt-lastsess frame" id="last-session-trim" style="display:none;"></div>
 
-
-
-  <div class="commodore-stripe" style="margin: 2rem 0;" aria-hidden="true"></div>
-
-  <!-- Timer Controls Toolbar -->
+  <!-- Toolbar -->
   <div class="timer-toolbar">
-    <!-- View Toggle -->
-    <div class="timer-view-toggle">
-      <button class="filter-btn active" data-view="daily" id="view-daily">Daily</button>
-      <button class="filter-btn" data-view="weekly" id="view-weekly">Weekly</button>
-      <button class="filter-btn" data-view="monthly" id="view-monthly">Monthly</button>
+    <div class="timer-view-toggle" role="group" aria-label="View">
+      <button class="toggle" data-view="daily" id="view-daily" data-key="d" aria-pressed="true"><kbd>D</kbd>Daily</button>
+      <button class="toggle" data-view="weekly" id="view-weekly" data-key="w" aria-pressed="false"><kbd>W</kbd>Weekly</button>
+      <button class="toggle" data-view="monthly" id="view-monthly" data-key="m" aria-pressed="false"><kbd>M</kbd>Monthly</button>
     </div>
-
-    <!-- Calendar Navigation & Total -->
     <div class="timer-toolbar-bottom">
-      <div class="tt-day-summary" style="display: flex; gap: 1rem; align-items: center;">
-        <span>Total: <strong id="view-total">0h 0m</strong></span>
-        <button class="timer-btn-sm" id="btn-share-insights" style="display:none;">Share Insights</button>
+      <div class="tt-day-summary">
+        <span>Total <strong id="view-total">0h 0m</strong></span>
+        <button class="timer-btn-sm" id="btn-share-insights" style="display:none;">Share insights</button>
       </div>
       <div class="tt-cal-nav" id="cal-nav">
         <button class="timer-btn-sm" id="cal-today">Today</button>
-        <button class="timer-btn-sm tt-btn-icon" id="cal-prev" title="Previous">&lt;</button>
-        <button class="timer-btn-sm tt-btn-icon" id="cal-next" title="Next">&gt;</button>
+        <button class="timer-btn-sm tt-btn-icon" id="cal-prev" title="Previous"><i class="ic ic-left"></i></button>
+        <button class="timer-btn-sm tt-btn-icon" id="cal-next" title="Next"><i class="ic ic-right"></i></button>
         <span class="tt-cal-label" id="cal-label"></span>
       </div>
     </div>
   </div>
 
-  <!-- Calendar View -->
   <div id="calendar-view"></div>
-
-  <!-- Insights Modal -->
-  <div id="insights-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center; flex-direction:column;">
-    <div style="background:#1A1A1A; color:#F4F4F4; padding:2rem; border:4px solid #F4F4F4; position:relative; min-width: 350px; max-width:90vw; max-height:90vh; overflow:auto; box-shadow: 8px 8px 0 rgba(0,0,0,0.5);">
-      <button id="insights-close" style="position:absolute; top:0.5rem; right:0.5rem; background:transparent; border:none; color:#F4F4F4; font-size:1.5rem; cursor:pointer;">&times;</button>
-      <h2 style="font-family:var(--font-heading); margin-top:0; margin-bottom:0.5rem; text-transform:uppercase; font-size:1.8rem; letter-spacing: -0.03em;">Your Insights</h2>
-      <p style="font-family:var(--font-mono); font-size:0.85rem; color:#A0A0A0; margin-bottom:1.5rem;">Long-press or right-click the image below to save/share, or use the download button.</p>
-
-      <div style="margin-bottom: 1.5rem; text-align: center;">
-        <button id="insights-legend-btn" style="font-family: var(--font-heading); font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.4rem 0.9rem; border: 2px solid #F4F4F4; background: #F4F4F4; color: #1A1A1A; cursor: pointer; transition: all 0.2s ease; white-space: nowrap;">
-          &#9745; INCLUDE PROJECT LEGEND
-        </button>
-      </div>
-
-      <div id="insights-img-container" style="text-align:center; margin-bottom:1.5rem; border:2px solid #F4F4F4; background:#000; padding: 0.5rem;"></div>
-
-      <div style="text-align:center;">
-        <a id="insights-download-btn" download="timer-insights.png" style="font-family: var(--font-heading); font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; text-decoration:none; display:inline-block; background:var(--accent-green); color:#FFF; font-size: 1rem; padding: 0.75rem 2rem; border: 2px solid #FFF; box-shadow: 4px 4px 0 #FFF; cursor:pointer; transition: opacity 0.2s ease;">
-          DOWNLOAD IMAGE
-        </a>
-      </div>
-    </div>
-  </div>
-
 </div>
 
-<!-- Focus Mode Overlay -->
-<div id="focus-overlay" aria-hidden="true" style="display:none;">
-  <div class="focus-dot" id="focus-dot"></div>
-  <div class="focus-name" id="focus-name"></div>
-  <div class="focus-clock" id="focus-clock">00:00:00</div>
-  <div class="focus-actions">
-    <button class="focus-btn" id="focus-playpause" title="Pause">&#10074;&#10074;</button>
-    <button class="focus-btn focus-btn-stop" id="focus-stop" title="Stop">&#9632;</button>
+<!-- Insights -->
+<dialog id="insights-modal" class="dialog frame" closedby="any" aria-labelledby="insights-title">
+  <div class="dialog-bar">
+    <h2 id="insights-title">Your insights</h2>
+    <button class="icon-btn" id="insights-close" title="Close"><i class="ic ic-close"></i></button>
   </div>
-  <button class="focus-exit" id="focus-exit" title="Exit focus mode">
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/>
-      <path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>
-    </svg>
-    <span>Exit Focus</span>
-  </button>
+  <div class="dialog-body">
+    <p class="muted">Right-click or long-press the image to save or share it, or use Download.</p>
+    <label class="check"><input type="checkbox" id="insights-legend" checked> Include project legend</label>
+    <div id="insights-img-container" class="insights-img"></div>
+    <p><a id="insights-download-btn" class="btn" download="timer-insights.png">Download image</a></p>
+  </div>
+</dialog>
+
+<!-- Focus mode: the lock screen for the running task -->
+<div id="focus-overlay" hidden>
+  <div class="focus-stage">
+    <canvas class="art" data-seed="17.2,5.4" aria-hidden="true"></canvas>
+    <div class="wrap hero-inner">
+      <div class="hero-text" data-void>
+        <canvas class="big" id="focus-clock" data-fit role="img" aria-label="00:00:00"></canvas>
+        <p class="focus-name"><span class="focus-dot" id="focus-dot"></span><span id="focus-name"></span></p>
+        <p class="focus-status" id="focus-status" hidden>Paused</p>
+      </div>
+      <div class="hero-planet" data-planet aria-hidden="true"></div>
+    </div>
+  </div>
+  <div class="focus-bar">
+    <div class="wrap focus-bar-inner">
+      <button class="hint" id="focus-playpause"><i class="ic ic-pause"></i>Pause</button>
+      <button class="hint" id="focus-stop"><i class="ic ic-stop"></i>Stop</button>
+      <button class="hint focus-exit" id="focus-exit"><kbd>Esc</kbd>Exit focus</button>
+    </div>
+  </div>
 </div>
 
 <script src="{{ "js/timer.js" | absURL }}" defer></script>

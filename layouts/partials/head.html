@@ -1,12 +1,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ if .IsHome }}{{ .Site.Title }}{{ else }}{{ .Title }} - {{ .Site.Title }}{{ end }}</title>
-<meta name="description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+{{ $description := .Description | default .Site.Params.description }}
+<meta name="description" content="{{ $description }}">
 <meta name="author" content="{{ .Site.Params.author }}">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 
 <!-- Open Graph -->
-<meta property="og:title" content="{{ .Title }}">
-<meta property="og:description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+<meta property="og:title" content="{{ if .IsHome }}{{ .Site.Title }}{{ else }}{{ .Title }}{{ end }}">
+<meta property="og:description" content="{{ $description }}">
 <meta property="og:type" content="{{ if .IsPage }}article{{ else }}website{{ end }}">
 {{ $canonical := .Permalink }}
 {{ $subdomains := dict "timer" "timer.elhoussain.me" "blog" "blog.elhoussain.me" "library" "library.elhoussain.me" "links" "links.elhoussain.me" }}
@@ -19,27 +22,12 @@
 <link rel="canonical" href="{{ $canonical }}">
 <meta property="og:url" content="{{ $canonical }}">
 <meta property="og:image" content="{{ .Site.BaseURL }}images/og-image.png">
-<meta property="og:image:width" content="1024">
-<meta property="og:image:height" content="1024">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="{{ .Site.BaseURL }}images/og-image.png">
 
-<!-- Favicon -->
 <link rel="icon" type="image/svg+xml" href="{{ "images/favicon.svg" | absURL }}">
-
-<!-- Preload critical fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Lora:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-
-<!-- Inline critical theme script to prevent flash -->
-<script>
-  (function() {
-    var theme = localStorage.getItem('theme');
-    if (theme === 'dark') {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
-  })();
-</script>
-
+<link rel="preload" href="{{ "fonts/C64_Pro_Mono-STYLE.woff2" | absURL }}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{ "css/style.css" | absURL }}">
+<script src="{{ "js/main.js" | absURL }}" defer></script>

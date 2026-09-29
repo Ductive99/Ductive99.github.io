@@ -1,12 +1,11 @@
 {{ define "main" }}
-<div class="page-container">
-  <div class="section-header">
-    <h1>Tags</h1>
-  </div>
-  <div class="filter-bar">
+{{ partial "masthead.html" (dict "page" .) }}
+
+<div class="wrap section">
+  <ul class="term-list">
     {{ range .Pages }}
-    <a href="{{ .Permalink }}" class="filter-btn">{{ .Title }} ({{ len .Pages }})</a>
+    <li><a href="{{ .RelPermalink }}" class="hint">{{ .LinkTitle }} <span class="dim">{{ len .Pages }}</span></a></li>
     {{ end }}
-  </div>
+  </ul>
 </div>
 {{ end }}

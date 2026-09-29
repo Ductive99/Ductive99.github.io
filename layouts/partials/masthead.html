@@ -1,0 +1,12 @@
+{{- /* Section header over a band of nebula art. Params: page, meta (optional), tags (optional) */ -}}
+<header class="masthead">
+  <canvas class="art" data-seed="{{ hash.FNV32a .page.Title }}" data-density="-0.08" aria-hidden="true"></canvas>
+  <div class="wrap masthead-inner">
+    <div class="masthead-text" data-void>
+      <h1>{{ .page.Title }}</h1>
+      {{ with .page.Description }}<p class="muted">{{ . }}</p>{{ end }}
+      {{ with .meta }}<p class="dim">{{ . }}</p>{{ end }}
+      {{ with .tags }}<p class="tags">{{ range . }}<a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a>{{ end }}</p>{{ end }}
+    </div>
+  </div>
+</header>

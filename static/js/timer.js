@@ -25,6 +25,14 @@
   var selectedId = null;
   var deletingSessionId = null;
   var privacyMode = false;
+  var baseTitle = document.title;
+  // New projects cycle through the brighter C64 colours
+  var PALETTE = ['#67b6bd', '#7869c4', '#94e089', '#bfce72', '#b86962', '#8b3f96', '#55a049', '#9f9f9f'];
+  var ICON = {
+    play: '<i class="ic ic-play"></i>', pause: '<i class="ic ic-pause"></i>', stop: '<i class="ic ic-stop"></i>',
+    edit: '<i class="ic ic-edit"></i>', plus: '<i class="ic ic-plus"></i>', close: '<i class="ic ic-close"></i>',
+    up: '<i class="ic ic-up"></i>', down: '<i class="ic ic-down"></i>'
+  };
 
   // --- DOM ---
   var $panel = document.getElementById('project-panel');
@@ -54,6 +62,11 @@
     return h + 'h ' + m + 'm';
   }
   function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  // Clocks are drawn as big pixel digits by main.js
+  function setBig(cv, text) {
+    if (!cv || cv._text === text) return;
+    if (window.drawBig) window.drawBig(cv, text); else cv.setAttribute('aria-label', text);
+  }
   var _gibCache = {};
   function gibberish(str) {
     if (!str) return '';
@@ -114,6 +127,7 @@
     if (active) stopTimer();
     active = { projectId: projId, subprojectId: subId || null, initialStart: Date.now(), start: Date.now(), elapsed: 0, paused: false, pauseLog: [], countdownMs: countdownMs || null };
     save('tt_active', active);
+    if (editorInPanel()) editingSession = null;
     lastSession = null;
     selectedId = null;
     startTick();
@@ -149,9 +163,10 @@
     tick(); // update immediately
   }
 
-  function stopTimer() {
+  // endAt: when the session really ended (a countdown that finished while the tab was closed)
+  function stopTimer(endAt) {
     if (!active) return;
-    var now = Date.now();
+    var now = typeof endAt === 'number' ? endAt : Date.now();
     var duration = active.elapsed + (active.paused ? 0 : now - active.start);
     var startTime = active.initialStart || (now - duration);
     // Close any open pause interval
@@ -161,10 +176,11 @@
     sessions.push(newSession);
     save('tt_sessions', sessions);
     lastSession = newSession;
+    editingSession = null;
     active = null;
     save('tt_active', active);
     stopTick();
-    document.title = 'Timer';
+    document.title = baseTitle;
     if (focusMode) exitFocus();
     renderPanel();
     renderBanner();
@@ -176,13 +192,15 @@
   function startTick() { stopTick(); tick(); tickInterval = setInterval(tick, 1000); }
   function stopTick() { if (tickInterval) { clearInterval(tickInterval); tickInterval = null; } }
   function tick() {
-    if (!active) { document.title = 'Timer'; return; }
-    var el = active.elapsed + (active.paused ? 0 : Date.now() - active.start);
+    if (!active) { document.title = baseTitle; return; }
+    var tickNow = Date.now();
+    var el = active.elapsed + (active.paused ? 0 : tickNow - active.start);
     var formatted;
-    
+
     if (active.countdownMs) {
       var remaining = active.countdownMs - el;
       if (remaining <= 0) {
+        var overshoot = -remaining;
         remaining = 0;
         if (!active.paused) {
           // Gentle bird chirp alarm — 3 bursts
@@ -220,7 +238,8 @@
             chirp(now + 2.70);
             chirp(now + 2.95);
           } catch(e) {}
-          stopTimer();
+          // End the session when the countdown reached zero, not now
+          stopTimer(tickNow - overshoot);
           return;
         }
       }
@@ -230,9 +249,9 @@
       formatted = fmtDur(el);
       document.title = fmtDur(el) + ' - Timer';
     }
-    
-    if ($activeClock) $activeClock.textContent = formatted;
-    if ($focusClock && focusMode) $focusClock.textContent = formatted;
+
+    setBig($activeClock, formatted);
+    if (focusMode) setBig($focusClock, formatted);
     // Update inline timer on the active row
     var row = document.querySelector('[data-timer-id="' + active.projectId + (active.subprojectId ? ':' + active.subprojectId : '') + '"]');
     if (row) { var t = row.querySelector('.tt-row-clock'); if (t) t.textContent = formatted; }
@@ -245,29 +264,22 @@
 
   // --- Active Banner ---
   function renderBanner() {
-    if (!active) { $banner.style.display = 'none'; document.title = 'Timer'; return; }
+    if (!active) { $banner.style.display = 'none'; document.title = baseTitle; return; }
     var proj = getProj(active.projectId);
     var sub = active.subprojectId ? getSub(proj, active.subprojectId) : null;
     var projName = proj ? proj.name : '?';
     var subName = sub ? sub.name : null;
     var name = displayName(projName) + (subName ? ' / ' + displayName(subName) : '');
-    $activeDot.style.background = proj ? proj.color : '#888';
+    $activeDot.style.background = proj ? proj.color : '#787878';
     $activeName.textContent = name;
-    
-    if (active.paused) {
-      $activePlayPause.innerHTML = '&#9654;'; // Play icon
-      $activePlayPause.title = 'Resume';
-      $activePlayPause.style.color = 'var(--accent-green)';
-      $banner.style.animation = 'none';
-      $banner.style.borderColor = 'var(--border-color)';
-    } else {
-      $activePlayPause.innerHTML = '&#10074;&#10074;'; // Pause icon
-      $activePlayPause.title = 'Pause';
-      $activePlayPause.style.color = 'var(--accent-yellow)';
-      $banner.style.animation = 'tt-pulse 2s ease-in-out infinite';
-      $banner.style.borderColor = 'var(--accent-green)';
-    }
-    
+
+    // Running: a cyan line sweeps the bottom edge. Paused: a yellow status.
+    $activePlayPause.innerHTML = active.paused ? ICON.play : ICON.pause;
+    $activePlayPause.title = active.paused ? 'Resume' : 'Pause';
+    $banner.classList.toggle('is-paused', !!active.paused);
+    $banner.classList.toggle('is-running', !active.paused);
+    document.getElementById('active-status').hidden = !active.paused;
+
     $banner.style.display = '';
   }
 
@@ -276,17 +288,11 @@
 
   // --- Privacy Toggle ---
   var $privacyBtn = document.getElementById('btn-privacy');
-  var $privacyIcon = document.getElementById('privacy-icon');
-  var $privacyLabel = document.getElementById('privacy-label');
   if ($privacyBtn) {
     $privacyBtn.addEventListener('click', function () {
       privacyMode = !privacyMode;
       _gibCache = {}; // fresh gibberish each toggle
-      var eyeOn  = document.getElementById('icon-eye');
-      var eyeOff = document.getElementById('icon-eye-off');
-      if (eyeOn)  eyeOn.style.display  = privacyMode ? 'none' : '';
-      if (eyeOff) eyeOff.style.display = privacyMode ? ''     : 'none';
-      $privacyLabel.textContent = privacyMode ? 'Reveal' : 'Privacy';
+      $privacyBtn.setAttribute('aria-pressed', privacyMode);
       renderPanel();
       renderBanner();
       renderCalendar();
@@ -297,7 +303,7 @@
   function updateHint() {
     var $hint = document.getElementById('tt-hint');
     if (!$hint) return;
-    $hint.style.display = (!active && projects.filter(function(p){return !p.archived;}).length > 0) ? '' : 'none';
+    $hint.hidden = !(!active && projects.filter(function(p){return !p.archived;}).length > 0);
   }
 
   // --- Focus Mode ---
@@ -318,30 +324,24 @@
     var projName = proj ? proj.name : '?';
     var subName  = sub ? sub.name : null;
     $focusName.textContent = displayName(projName) + (subName ? ' / ' + displayName(subName) : '');
-    $focusDot.style.background = proj ? proj.color : '#888';
-    $focusOverlay.classList.toggle('focus-paused', !!active.paused);
-    $focusClock.classList.toggle('focus-ticking', !active.paused);
-    if ($focusPlay) {
-      $focusPlay.innerHTML = active.paused ? '&#9654;' : '&#10074;&#10074;';
-      $focusPlay.title = active.paused ? 'Resume' : 'Pause';
-    }
+    $focusDot.style.background = proj ? proj.color : '#787878';
+    document.getElementById('focus-status').hidden = !active.paused;
+    if ($focusPlay) $focusPlay.innerHTML = active.paused ? ICON.play + 'Resume' : ICON.pause + 'Pause';
   }
 
   function enterFocus() {
     if (!active) return;
     focusMode = true;
     updateFocusOverlay();
-    $focusOverlay.style.display = 'flex';
-    $focusOverlay.setAttribute('aria-hidden', 'false');
+    $focusOverlay.hidden = false;
     document.body.classList.add('tt-focus-active');
+    $focusClock._text = null; // redraw at the size of the now-visible overlay
+    tick();
   }
 
   function exitFocus() {
     focusMode = false;
-    if ($focusOverlay) {
-      $focusOverlay.style.display = 'none';
-      $focusOverlay.setAttribute('aria-hidden', 'true');
-    }
+    if ($focusOverlay) $focusOverlay.hidden = true;
     document.body.classList.remove('tt-focus-active');
   }
 
@@ -366,22 +366,22 @@
       html += '<div class="tt-project" draggable="true" data-drag-proj="' + p.id + '">';
       
       if (deletingId === p.id) {
-        html += '<div class="tt-row" style="background: var(--accent-red); color: white; border-bottom: 2px solid var(--border-color);">';
-        html += '<span style="flex:1; font-weight: bold; padding-left: 0.5rem; font-size: 0.85rem;">Are you sure?</span>';
-        html += '<button class="timer-btn-sm" style="background:var(--accent-yellow); color:var(--text-main); margin-right: 0.5rem;" data-archiveproj="' + p.id + '" title="Remove from list but keep data for insights">Archive</button>';
-        html += '<button class="timer-btn-sm" style="background:white; color:var(--accent-red); margin-right: 0.5rem;" data-confirmdel="' + p.id + '" title="Permanently delete project and break past insight data">Delete All</button>';
-        html += '<button class="timer-btn-sm" style="background:transparent; color:white; border: 1px solid white; margin-right: 0.5rem;" data-canceldel="1">Cancel</button>';
+        html += '<div class="tt-row tt-confirm">';
+        html += '<span>Delete this project?</span>';
+        html += '<button class="timer-btn-sm" data-archiveproj="' + p.id + '" title="Remove from the list but keep its time in insights">Archive</button>';
+        html += '<button class="timer-btn-sm btn-danger" data-confirmdel="' + p.id + '" title="Permanently delete the project; past insights lose its name">Delete all</button>';
+        html += '<button class="timer-btn-sm" data-canceldel="1">Cancel</button>';
         html += '</div>';
       } else if (editingId === p.id) {
-        html += '<div class="tt-row">';
-        html += '<input type="color" id="edit-color-' + p.id + '" class="timer-color" value="' + p.color + '" style="margin-right: 0.5rem; width: 24px; height: 24px; flex-shrink:0;">';
-        html += '<input type="text" id="edit-name-' + p.id + '" class="timer-input" value="' + esc(p.name).replace(/"/g, '&quot;') + '" style="flex:1; margin-right: 0.5rem; padding: 0.25rem 0.5rem;">';
-        html += '<button class="timer-btn-sm" data-saveedit="' + p.id + '" style="margin-right: 0.25rem;">Save</button>';
-        html += '<button class="timer-btn-sm" data-canceledit="1">&times;</button>';
+        html += '<div class="tt-row tt-row-edit">';
+        html += '<input type="color" id="edit-color-' + p.id + '" class="timer-color" list="c64-palette" value="' + p.color + '" aria-label="Colour">';
+        html += '<input type="text" id="edit-name-' + p.id + '" class="timer-input" value="' + esc(p.name).replace(/"/g, '&quot;') + '" aria-label="Project name">';
+        html += '<button class="timer-btn-sm" data-saveedit="' + p.id + '">Save</button>';
+        html += '<button class="tt-row-btn" data-canceledit="1" title="Cancel">' + ICON.close + '</button>';
         html += '</div>';
       } else {
         var isSelected = selectedId === p.id;
-        html += '<div class="tt-row tt-row-selectable' + (isActive ? ' tt-row-active' : '') + (isSelected ? ' tt-row-selected' : '') + '" data-timer-id="' + p.id + '" data-select="' + p.id + '" style="cursor:pointer;">';
+        html += '<div class="tt-row tt-row-selectable' + (isActive ? ' tt-row-active' : '') + (isSelected ? ' tt-row-selected' : '') + '" data-timer-id="' + p.id + '" data-select="' + p.id + '">';
         html += '<span class="timer-project-dot" style="background:' + p.color + '"></span>';
         html += '<span class="tt-row-name">' + esc(displayName(p.name)) + '</span>';
         var el = active && active.projectId === p.id && !active.subprojectId ? 
@@ -397,32 +397,24 @@
 
         if (isActive) {
           if (active.paused) {
-            html += '<button class="tt-row-btn tt-btn-play" data-play="' + p.id + '" title="Resume">&#9654;</button>';
+            html += '<button class="tt-row-btn tt-btn-play" data-play="' + p.id + '" title="Resume">' + ICON.play + '</button>';
           } else {
-            html += '<button class="tt-row-btn tt-btn-pause" data-pause="1" style="color:var(--accent-yellow)" title="Pause">&#10074;&#10074;</button>';
+            html += '<button class="tt-row-btn tt-btn-pause" data-pause="1" title="Pause">' + ICON.pause + '</button>';
           }
-          html += '<button class="tt-row-btn tt-btn-stop" data-stop="1" title="Stop">&#9632;</button>';
+          html += '<button class="tt-row-btn tt-btn-stop" data-stop="1" title="Stop">' + ICON.stop + '</button>';
         }
 
         if (hasSubs) {
-          html += '<button class="tt-row-btn tt-btn-toggle" data-toggle="' + p.id + '" title="Toggle sub-projects">' + (expanded ? '&#9650;' : '&#9660;') + '</button>';
+          html += '<button class="tt-row-btn tt-btn-toggle" data-toggle="' + p.id + '" title="' + (expanded ? 'Hide' : 'Show') + ' sub-projects">' + (expanded ? ICON.up : ICON.down) + '</button>';
         }
 
-        html += '<button class="tt-row-btn tt-btn-edit" data-edit="' + p.id + '" title="Edit">&#x270E;&#xFE0E;</button>';
-        html += '<button class="tt-row-btn tt-btn-gear" data-addsub="' + p.id + '" title="Add sub-project">+</button>';
-        html += '<button class="tt-row-btn tt-btn-danger" data-del="' + p.id + '" title="Delete">&times;</button>';
+        html += '<button class="tt-row-btn tt-btn-edit" data-edit="' + p.id + '" title="Edit">' + ICON.edit + '</button>';
+        html += '<button class="tt-row-btn tt-btn-gear" data-addsub="' + p.id + '" title="Add sub-project">' + ICON.plus + '</button>';
+        html += '<button class="tt-row-btn tt-btn-danger" data-del="' + p.id + '" title="Delete">' + ICON.close + '</button>';
         html += '</div>';
 
         // Start controls if selected
-        if (isSelected && !isActive) {
-          html += '<div class="tt-start-panel">';
-          html += '<button class="timer-btn-sm" data-play="' + p.id + '">Start Stopwatch</button>';
-          html += '<span class="tt-start-or">OR</span>';
-          html += '<input type="number" id="countdown-' + p.id + '" class="timer-input tt-input-sm" value="25" min="1" max="999" style="width: 50px; text-align: center;">';
-          html += '<span style="font-family: var(--font-mono); font-size: 0.8rem; margin: 0 0.5rem 0 -0.25rem;">min</span>';
-          html += '<button class="timer-btn-sm" data-start-timer="' + p.id + '">Start Timer</button>';
-          html += '</div>';
-        }
+        if (isSelected && !isActive) html += startPanelHtml(p.id, 'data-play="' + p.id + '"');
       }
 
       // Sub-projects
@@ -433,25 +425,25 @@
           var subActive = active && active.projectId === p.id && active.subprojectId === s.id;
           
           if (deletingId === p.id + ':' + s.id) {
-            html += '<div class="tt-row tt-row-sub" style="background: var(--accent-red); color: white; width: 100%; border: none;">';
-            html += '<span style="flex:1; font-weight: bold; padding-left: 1.5rem; font-size: 0.85rem;">Are you sure?</span>';
-            html += '<button class="timer-btn-sm" style="background:white; color:var(--accent-red); margin-right: 0.5rem;" data-confirmdelsub="' + p.id + ':' + s.id + '">Delete</button>';
-            html += '<button class="timer-btn-sm" style="background:transparent; color:white; border: 1px solid white; margin-right: 0.5rem;" data-canceldel="1">Cancel</button>';
+            html += '<div class="tt-row tt-row-sub tt-confirm">';
+            html += '<span>Delete this sub-project?</span>';
+            html += '<button class="timer-btn-sm btn-danger" data-confirmdelsub="' + p.id + ':' + s.id + '">Delete</button>';
+            html += '<button class="timer-btn-sm" data-canceldel="1">Cancel</button>';
             html += '</div>';
           } else if (editingId === p.id + ':' + s.id) {
-            html += '<div class="tt-row tt-row-sub" style="width:100%;">';
+            html += '<div class="tt-row tt-row-sub tt-row-edit">';
             html += '<span class="tt-sub-indent"></span>';
-            html += '<input type="text" id="edit-subname-' + p.id + '-' + s.id + '" class="timer-input tt-input-sm" value="' + esc(s.name).replace(/"/g, '&quot;') + '" style="flex:1; margin-right: 0.5rem; padding: 0.25rem 0.5rem;">';
-            html += '<button class="timer-btn-sm" data-saveeditsub="' + p.id + ':' + s.id + '" style="margin-right: 0.25rem;">Save</button>';
-            html += '<button class="timer-btn-sm" data-canceledit="1">&times;</button>';
+            html += '<input type="text" id="edit-subname-' + p.id + '-' + s.id + '" class="timer-input" value="' + esc(s.name).replace(/"/g, '&quot;') + '" aria-label="Sub-project name">';
+            html += '<button class="timer-btn-sm" data-saveeditsub="' + p.id + ':' + s.id + '">Save</button>';
+            html += '<button class="tt-row-btn" data-canceledit="1" title="Cancel">' + ICON.close + '</button>';
             html += '</div>';
           } else {
             var subIdFull = p.id + ':' + s.id;
             var isSubSelected = selectedId === subIdFull;
-            html += '<div class="tt-row tt-row-sub tt-row-selectable' + (subActive ? ' tt-row-active' : '') + (isSubSelected ? ' tt-row-selected' : '') + '" data-timer-id="' + subIdFull + '" draggable="true" data-drag-sub="' + subIdFull + '" data-select="' + subIdFull + '" style="cursor:pointer;">';
+            html += '<div class="tt-row tt-row-sub tt-row-selectable' + (subActive ? ' tt-row-active' : '') + (isSubSelected ? ' tt-row-selected' : '') + '" data-timer-id="' + subIdFull + '" draggable="true" data-drag-sub="' + subIdFull + '" data-select="' + subIdFull + '">';
             
             html += '<span class="tt-sub-indent"></span>';
-            html += '<span class="timer-project-dot tt-dot-sm" style="background:' + p.color + '; opacity:0.6"></span>';
+            html += '<span class="timer-project-dot tt-dot-sm" style="background:' + p.color + '"></span>';
             html += '<span class="tt-row-name">' + esc(displayName(s.name)) + '</span>';
             var elSub = active && active.projectId === p.id && active.subprojectId === s.id ? 
               active.elapsed + (active.paused ? 0 : Date.now() - active.start) : 0;
@@ -465,35 +457,27 @@
 
             if (subActive) {
               if (active.paused) {
-                html += '<button class="tt-row-btn tt-btn-play" data-playsub="' + subIdFull + '" title="Resume">&#9654;</button>';
+                html += '<button class="tt-row-btn tt-btn-play" data-playsub="' + subIdFull + '" title="Resume">' + ICON.play + '</button>';
               } else {
-                html += '<button class="tt-row-btn tt-btn-pause" data-pause="1" style="color:var(--accent-yellow)" title="Pause">&#10074;&#10074;</button>';
+                html += '<button class="tt-row-btn tt-btn-pause" data-pause="1" title="Pause">' + ICON.pause + '</button>';
               }
-              html += '<button class="tt-row-btn tt-btn-stop" data-stop="1" title="Stop">&#9632;</button>';
+              html += '<button class="tt-row-btn tt-btn-stop" data-stop="1" title="Stop">' + ICON.stop + '</button>';
             }
-            html += '<button class="tt-row-btn tt-btn-edit" data-editsub="' + subIdFull + '" title="Edit">&#x270E;&#xFE0E;</button>';
-            html += '<button class="tt-row-btn tt-btn-danger" data-delsub="' + subIdFull + '" title="Delete">&times;</button>';
+            html += '<button class="tt-row-btn tt-btn-edit" data-editsub="' + subIdFull + '" title="Edit">' + ICON.edit + '</button>';
+            html += '<button class="tt-row-btn tt-btn-danger" data-delsub="' + subIdFull + '" title="Delete">' + ICON.close + '</button>';
             html += '</div>';
 
-            if (isSubSelected && !subActive) {
-              html += '<div class="tt-start-panel" style="padding-left: 2.5rem;">';
-              html += '<button class="timer-btn-sm" data-playsub="' + subIdFull + '">Start Stopwatch</button>';
-              html += '<span class="tt-start-or">OR</span>';
-              html += '<input type="number" id="countdown-' + p.id + '\\:' + s.id + '" class="timer-input tt-input-sm" value="25" min="1" max="999" style="width: 50px; text-align: center;">';
-              html += '<span style="font-family: var(--font-mono); font-size: 0.8rem; margin: 0 0.5rem 0 -0.25rem;">min</span>';
-              html += '<button class="timer-btn-sm" data-start-timer="' + subIdFull + '">Start Timer</button>';
-              html += '</div>';
-            }
+            if (isSubSelected && !subActive) html += startPanelHtml(subIdFull, 'data-playsub="' + subIdFull + '"');
           }
         });
         }
         
         if (addingSubFor === p.id) {
-          html += '<div class="tt-row tt-row-sub">';
+          html += '<div class="tt-row tt-row-sub tt-row-edit">';
           html += '<span class="tt-sub-indent"></span>';
-          html += '<input type="text" id="new-sub-name-' + p.id + '" class="timer-input tt-input-sm" placeholder="+ Add a sub-project..." style="flex:1; margin-right: 0.5rem; padding: 0.35rem 0.5rem; font-size: 0.75rem;">';
-          html += '<button class="timer-btn-sm" data-savesub="' + p.id + '" style="padding: 0.35rem 0.75rem;">Add</button>';
-          html += '<button class="timer-btn-sm" data-cancelsub="1" style="padding: 0.35rem 0.5rem; margin-left: 0.25rem;" title="Cancel">&times;</button>';
+          html += '<input type="text" id="new-sub-name-' + p.id + '" class="timer-input" placeholder="New sub-project name" aria-label="New sub-project name">';
+          html += '<button class="timer-btn-sm" data-savesub="' + p.id + '">Add</button>';
+          html += '<button class="tt-row-btn" data-cancelsub="1" title="Cancel">' + ICON.close + '</button>';
           html += '</div>';
         }
         
@@ -502,16 +486,27 @@
       html += '</div>';
     });
 
-    html += '<div class="tt-project tt-add-project-row" style="background: var(--card-bg); padding: 0.5rem; display: flex; gap: 0.5rem; align-items: center; border-top: 2px dashed var(--border-color);">';
-    html += '<input type="text" id="new-project-name" class="timer-input" placeholder="+ Add a new project..." style="flex:1; font-size: 0.85rem; padding: 0.4rem 0.5rem;">';
-    html += '<input type="color" id="new-project-color" class="timer-color" value="#D92B2B">';
+    html += '<div class="tt-project tt-add-project-row">';
+    html += '<input type="text" id="new-project-name" class="timer-input" placeholder="New project" aria-label="New project name">';
+    html += '<input type="color" id="new-project-color" class="timer-color" list="c64-palette" value="' + PALETTE[projects.length % PALETTE.length] + '" aria-label="Colour">';
     html += '<button class="timer-btn-sm" id="btn-add-project">Add</button>';
     html += '</div>';
 
     if (projects.length === 0) {
-      html = '<p style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">No projects yet. Add one below.</p>' + html;
+      html = '<p class="tt-empty">No projects yet. Add one below.</p>' + html;
     }
     $panel.innerHTML = html;
+  }
+
+  // Stopwatch or countdown, shown under the selected row. id is "project" or "project:sub".
+  function startPanelHtml(id, playAttr) {
+    return '<div class="tt-start-panel">' +
+      '<button class="timer-btn-sm" ' + playAttr + '>' + ICON.play + 'Start stopwatch</button>' +
+      '<span class="tt-start-or">or</span>' +
+      '<input type="number" id="countdown-' + id + '" class="timer-input tt-input-num" value="25" min="1" max="999" aria-label="Countdown minutes">' +
+      '<span class="dim">min</span>' +
+      '<button class="timer-btn-sm" data-start-timer="' + id + '">Start timer</button>' +
+      '</div>';
   }
 
   // Panel event delegation
@@ -553,9 +548,7 @@
     if (btn) {
       var id = btn.getAttribute('data-start-timer');
       var parts = id.split(':');
-      // Escape the colon for getElementById if there's a subproject
-      var inputId = 'countdown-' + (parts[1] ? parts[0] + '\\:' + parts[1] : parts[0]);
-      var input = document.getElementById(inputId) || document.querySelector('[id="' + 'countdown-' + id + '"]');
+      var input = document.getElementById('countdown-' + id);
       var mins = input ? parseInt(input.value) : 25;
       if (isNaN(mins) || mins < 1) mins = 25;
       startTimer(parts[0], parts[1] || null, mins * 60000);
@@ -856,8 +849,8 @@
 
   function setView(v, keepDate) {
     currentView = v;
-    document.querySelectorAll('.timer-view-toggle .filter-btn').forEach(function (b) {
-      b.classList.toggle('active', b.getAttribute('data-view') === v);
+    document.querySelectorAll('.timer-view-toggle [data-view]').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-view') === v);
     });
     if (!keepDate) viewDate = new Date();
     renderCalendar();
@@ -884,7 +877,7 @@
     
     var $btnShare = document.getElementById('btn-share-insights');
     if ($btnShare) {
-      $btnShare.style.display = (currentView === 'weekly' || currentView === 'monthly') ? 'block' : 'none';
+      $btnShare.style.display = (currentView === 'weekly' || currentView === 'monthly') ? '' : 'none';
     }
   }
 
@@ -948,7 +941,7 @@
           var label = displayName(proj ? proj.name : '?');
           if (sub) label += ' / ' + displayName(sub.name);
           var isLive = s.id === '__live__';
-          blocks.push({ left: left, width: Math.max(width, 1), color: proj ? proj.color : '#888', name: label, live: isLive });
+          blocks.push({ left: left, width: Math.max(width, 1), color: proj ? proj.color : '#787878', name: label, live: isLive });
 
           // Render pause intervals as shaded overlay blocks
           if (s.pauseLog && s.pauseLog.length > 0) {
@@ -959,7 +952,7 @@
               if (pe > ps) {
                 var pLeft = ((ps - hourStart.getTime()) / 3600000) * 100;
                 var pWidth = ((pe - ps) / 3600000) * 100;
-                pauseBlocks.push({ left: pLeft, width: Math.max(pWidth, 0.5), color: proj ? proj.color : '#888' });
+                pauseBlocks.push({ left: pLeft, width: Math.max(pWidth, 0.5), color: proj ? proj.color : '#787878' });
               }
             });
           }
@@ -970,10 +963,10 @@
       html += '<span class="tt-hour-label">' + pad(h) + ':00</span>';
       html += '<div class="tt-hour-track">';
       blocks.forEach(function (b) {
-        html += '<div class="tt-hour-block' + (b.live ? ' tt-hour-block-live' : '') + '" style="left:' + b.left + '%;width:' + b.width + '%;background:' + b.color + ';" title="' + esc(b.name) + '"></div>';
+        html += '<div class="tt-hour-block' + (b.live ? ' tt-hour-block-live' : '') + '" style="left:' + b.left + '%;width:' + b.width + '%;background-color:' + b.color + ';" title="' + esc(b.name) + '"></div>';
       });
       pauseBlocks.forEach(function (b) {
-        html += '<div class="tt-hour-block tt-hour-block-pause" style="left:' + b.left + '%;width:' + b.width + '%;background:' + b.color + ';" title="Paused"></div>';
+        html += '<div class="tt-hour-block tt-hour-block-pause" style="left:' + b.left + '%;width:' + b.width + '%;background-color:' + b.color + ';" title="Paused"></div>';
       });
       html += '</div></div>';
     }
@@ -981,12 +974,11 @@
 
     // Session list
     if (daySessions.length > 0) {
-      html += '<h3 style="margin-top:1.5rem;">Sessions</h3>';
+      html += '<h3 class="tt-sessions-title">Sessions</h3>';
       html += renderSessionList(daySessions);
     }
 
     $calView.innerHTML = html;
-    attachInlineTrimDrag();
   }
 
   function buildStatsBanner(dayData, totalMs) {
@@ -1039,35 +1031,33 @@
     
     html += '<div class="tt-stat-item">';
     html += '<div class="tt-stat-val">' + fmtShort(avgDaily) + '</div>';
-    html += '<div class="tt-stat-label">Daily Avg</div>';
+    html += '<div class="tt-stat-label">Daily average</div>';
     html += '</div>';
 
-    html += '<div class="tt-stat-item">';
+    html += '<div class="tt-stat-item tt-stat-top">';
     html += '<div class="tt-stat-val" title="' + esc(topProjName) + '">' + esc(topProjName) + '</div>';
-    html += '<div class="tt-stat-label">Top Project</div>';
+    html += '<div class="tt-stat-label">Top project</div>';
     html += '</div>';
 
     html += '<div class="tt-stat-item">';
     html += '<div class="tt-stat-val">' + bestDayStr + '</div>';
-    html += '<div class="tt-stat-label">Best Day (' + fmtShort(bestDayVal) + ')</div>';
+    html += '<div class="tt-stat-label">Best day (' + fmtShort(bestDayVal) + ')</div>';
     html += '</div>';
 
     html += '<div class="tt-stat-item">';
     html += '<div class="tt-stat-val">' + activeDays + ' / ' + dayData.length + '</div>';
-    html += '<div class="tt-stat-label">Active Days</div>';
+    html += '<div class="tt-stat-label">Active days</div>';
     html += '</div>';
 
     if (totalMs > 0) {
-      html += '<div style="width: 100%; margin-top: 1rem;">';
-      html += '<div style="display: flex; width: 100%; height: 8px; background: var(--border-color);">';
+      html += '<div class="tt-stats-bar">';
       Object.keys(projTotals).sort(function(a, b) { return projTotals[b] - projTotals[a]; }).forEach(function(pid) {
         var pct = (projTotals[pid] / totalMs) * 100;
         var p = getProj(pid);
-        var color = p ? p.color : '#888';
+        var color = p ? p.color : '#787878';
         var name = p ? esc(displayName(p.name)) : 'Unknown';
         html += '<div style="width: ' + pct + '%; background: ' + color + ';" title="' + name + ': ' + fmtShort(projTotals[pid]) + '"></div>';
       });
-      html += '</div>';
       html += '</div>';
     }
 
@@ -1119,7 +1109,7 @@
 
     dayData.forEach(function (dd, idx) {
       var isToday = dd.key === today;
-      html += '<div class="tt-week-col' + (isToday ? ' tt-week-today' : '') + '" data-goto-day="' + dd.key + '" style="cursor:pointer;">';
+      html += '<div class="tt-week-col' + (isToday ? ' tt-week-today' : '') + '" data-goto-day="' + dd.key + '">';
       html += '<div class="tt-week-day">' + dayNames[idx] + '</div>';
       html += '<div class="tt-week-date">' + dd.date.getDate() + '</div>';
 
@@ -1133,7 +1123,7 @@
         projIds.forEach(function (pid) {
           var proj = getProj(pid);
           var pct = (dd.byProj[pid] / dd.total) * 100;
-          html += '<div class="tt-week-bar-seg" style="height:' + pct + '%;background:' + (proj ? proj.color : '#888') + ';" title="' + (proj ? esc(displayName(proj.name)) : '?') + ': ' + fmtShort(dd.byProj[pid]) + '"></div>';
+          html += '<div class="tt-week-bar-seg" style="height:' + pct + '%;background:' + (proj ? proj.color : '#787878') + ';" title="' + (proj ? esc(displayName(proj.name)) : '?') + ': ' + fmtShort(dd.byProj[pid]) + '"></div>';
         });
         html += '</div>';
       }
@@ -1146,7 +1136,6 @@
     html += '</div>';
     html += buildStatsBanner(dayData, weekTotal);
     $calView.innerHTML = html;
-    attachInlineTrimDrag();
   }
 
   // --- Monthly: Calendar grid ---
@@ -1217,7 +1206,7 @@
       var intensity = total > 0 ? Math.max(0.15, total / maxDayMs) : 0;
 
       var cellKey = year + '-' + pad(month + 1) + '-' + pad(day);
-      html += '<div class="tt-month-cell' + (isToday ? ' tt-month-today' : '') + '" data-goto-day="' + cellKey + '" style="cursor:pointer;">';
+      html += '<div class="tt-month-cell' + (isToday ? ' tt-month-today' : '') + '" data-goto-day="' + cellKey + '">';
       html += '<span class="tt-month-day-num">' + day + '</span>';
 
       if (total > 0) {
@@ -1225,14 +1214,18 @@
         var pids = Object.keys(dayProjects[day] || {});
         pids.slice(0, 4).forEach(function (pid) {
           var proj = getProj(pid);
-          html += '<span class="tt-month-dot" style="background:' + (proj ? proj.color : '#888') + '"></span>';
+          html += '<span class="tt-month-dot" style="background:' + (proj ? proj.color : '#787878') + '"></span>';
         });
         html += '</div>';
         html += '<span class="tt-month-time">' + fmtShort(total) + '</span>';
       }
 
       if (total > 0) {
-        html += '<div class="tt-month-heat" style="opacity:' + (intensity * 0.3) + '"></div>';
+        // Ten-segment meter, relative to the busiest day of the month
+        var lit = Math.max(1, Math.round(intensity * 10));
+        html += '<span class="tt-month-meter" aria-hidden="true">';
+        for (var seg = 0; seg < 10; seg++) html += '<i' + (seg < lit ? ' class="on"' : '') + '></i>';
+        html += '</span>';
       }
 
       html += '</div>';
@@ -1241,98 +1234,38 @@
     html += '</div>';
     html += buildStatsBanner(dayData, monthTotal);
     $calView.innerHTML = html;
-    attachInlineTrimDrag();
   }
 
   // --- Session List ---
-  function buildInlineEditorHtml(s) {
-    var proj = getProj(s.projectId);
-    var sub = proj ? getSub(proj, s.subprojectId) : null;
-    var color = proj ? proj.color : '#888';
-    var name = proj ? esc(displayName(proj.name)) : 'Unknown';
-    if (sub) name += ' / ' + esc(displayName(sub.name));
-    var wallSpan = s.end - s.start;
-    if (wallSpan < 1) wallSpan = 1;
-    var pauseBlocks = [];
-    (s.pauseLog || []).forEach(function(p) {
-      var ps = Math.max(p.start, s.start);
-      var pe = Math.min(p.end || s.end, s.end);
-      if (pe > ps) pauseBlocks.push({ left: ((ps - s.start) / wallSpan) * 100, width: ((pe - ps) / wallSpan) * 100 });
-    });
-    var handlePct = Math.max(1, Math.min(100, ((trimEndMs - s.start) / wallSpan) * 100));
-    function computeDuration(endMs) {
-      var pausedMs = 0;
-      (s.pauseLog || []).forEach(function(p) {
-        var ps = Math.max(p.start, s.start);
-        var pe = Math.min(p.end || endMs, endMs);
-        if (pe > ps) pausedMs += pe - ps;
-      });
-      return Math.max(0, endMs - s.start - pausedMs);
-    }
-    var startTime = new Date(s.start);
-    var endTime = new Date(trimEndMs);
-    var dur = computeDuration(trimEndMs);
-    var h = '<li class="tt-lastsess" style="list-style:none; margin-bottom: -2px;" data-inline-editor="' + s.id + '">';
-    h += '<div class="tt-lastsess-inner">';
-    h += '<span class="timer-project-dot" style="background:' + color + '"></span>';
-    h += '<span class="tt-lastsess-name">Edit: ' + name + '</span>';
-    h += '<button class="tt-row-btn" data-inline-cancel="' + s.id + '" title="Cancel">&times;</button>';
-    h += '</div>';
-    h += '<div class="tt-trim-timeline">';
-    h += '<div class="tt-trim-track" id="inline-trim-track-' + s.id + '">';
-    h += '<div class="tt-trim-track-inner" style="left:0;width:' + handlePct + '%;background:' + color + ';"></div>';
-    pauseBlocks.forEach(function(pb) {
-      h += '<div class="tt-trim-pause-block" style="left:' + pb.left + '%;width:' + pb.width + '%;"></div>';
-    });
-    h += '<div class="tt-trim-cutoff" style="width:' + (100 - handlePct) + '%;right:0;left:auto;"></div>';
-    h += '<div class="tt-trim-handle" id="inline-trim-handle-' + s.id + '" style="left:calc(' + handlePct + '% - 3px);" title="Drag to trim"></div>';
-    h += '</div>';
-    h += '<div class="tt-trim-labels">';
-    h += '<span>' + pad(startTime.getHours()) + ':' + pad(startTime.getMinutes()) + '</span>';
-    h += '<span class="tt-trim-end-label" id="inline-trim-end-' + s.id + '">' + pad(endTime.getHours()) + ':' + pad(endTime.getMinutes()) + '</span>';
-    h += '<span>' + pad(new Date(s.end).getHours()) + ':' + pad(new Date(s.end).getMinutes()) + '</span>';
-    h += '</div></div>';
-    h += '<div class="tt-lastsess-footer">';
-    h += '<span class="tt-lastsess-dur" id="inline-trim-dur-' + s.id + '">' + fmtShort(dur) + '</span>';
-    h += '<div style="display:flex;gap:0.5rem;">';
-    h += '<button class="timer-btn-sm" data-inline-reset="' + s.id + '">Reset</button>';
-    h += '<button class="timer-btn-sm" data-inline-save="' + s.id + '">Save</button>';
-    h += '</div></div>';
-    h += '</li>';
-    return h;
-  }
-
   function renderSessionList(list) {
     var sorted = list.slice().sort(function (a, b) { return b.start - a.start; });
     var html = '<ul class="timer-session-list">';
     sorted.forEach(function (s) {
       var proj = getProj(s.projectId);
       var sub = proj ? getSub(proj, s.subprojectId) : null;
-      var color = proj ? proj.color : '#888';
+      var color = proj ? proj.color : '#787878';
       var name = proj ? esc(displayName(proj.name)) : 'Deleted';
       if (sub) name += ' / ' + esc(displayName(sub.name));
-      var start = new Date(s.start);
-      var end = new Date(s.end);
 
-      // Inline editor takes over this row
-      if (editingSession && editingSession.id === s.id && !lastSession) {
-        html += buildInlineEditorHtml(s);
+      // The editor takes over this row, unless it is open in the last-session panel
+      if (editingSession && editingSession.id === s.id && !editorInPanel()) {
+        html += '<li class="tt-lastsess frame" data-trim-editor>' + editorHtml(editingSession, 'Edit') + '</li>';
         return;
       }
 
       if (deletingSessionId === s.id) {
-        html += '<li class="timer-session-item" style="background: var(--accent-red); color: white; flex-wrap: wrap;">';
-        html += '<span style="flex:1; font-weight: bold; padding-left: 0.5rem; font-family: var(--font-heading); font-size: 0.8rem; text-transform: uppercase;">Are you sure?</span>';
-        html += '<button class="timer-btn-sm" style="background:white; color:var(--accent-red); margin-right: 0.5rem;" data-confirm-del-session="' + s.id + '">Delete</button>';
-        html += '<button class="timer-btn-sm" style="background:transparent; color:white; border: 1px solid white; margin-right: 0.5rem;" data-cancel-del-session="1">Cancel</button>';
+        html += '<li class="timer-session-item tt-confirm">';
+        html += '<span>Delete this session?</span>';
+        html += '<button class="timer-btn-sm btn-danger" data-confirm-del-session="' + s.id + '">Delete</button>';
+        html += '<button class="timer-btn-sm" data-cancel-del-session="1">Cancel</button>';
         html += '</li>';
       } else {
-        html += '<li class="timer-session-item" data-edit-session="' + s.id + '">' +
+        html += '<li class="timer-session-item" data-edit-session="' + s.id + '" title="Edit session">' +
           '<span class="timer-project-dot" style="background:' + color + '"></span>' +
           '<span class="timer-session-name">' + name + '</span>' +
-          '<span class="timer-session-time">' + pad(start.getHours()) + ':' + pad(start.getMinutes()) + ' - ' + pad(end.getHours()) + ':' + pad(end.getMinutes()) + '</span>' +
+          '<span class="timer-session-time">' + hm(s.start) + ' - ' + hm(s.end) + '</span>' +
           '<span class="timer-session-dur">' + fmtShort(s.duration) + '</span>' +
-          '<button class="timer-btn-icon timer-btn-danger" data-del-session="' + s.id + '" title="Delete">&times;</button>' +
+          '<button class="timer-btn-icon timer-btn-danger" data-del-session="' + s.id + '" title="Delete">' + ICON.close + '</button>' +
           '</li>';
       }
     });
@@ -1340,63 +1273,9 @@
     return html;
   }
 
-  // Attach drag listeners to an inline editor after render
-  function attachInlineTrimDrag() {
-    if (!editingSession || lastSession) return;
-    var s = editingSession;
-    var wallSpan = s.end - s.start;
-    if (wallSpan < 1) return;
-    var track = document.getElementById('inline-trim-track-' + s.id);
-    var handle = document.getElementById('inline-trim-handle-' + s.id);
-    if (!track || !handle) return;
-
-    function computeDuration(endMs) {
-      var pausedMs = 0;
-      (s.pauseLog || []).forEach(function(p) {
-        var ps = Math.max(p.start, s.start);
-        var pe = Math.min(p.end || endMs, endMs);
-        if (pe > ps) pausedMs += pe - ps;
-      });
-      return Math.max(0, endMs - s.start - pausedMs);
-    }
-
-    function pctFromEvent(e) {
-      var rect = track.getBoundingClientRect();
-      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    }
-    function applyPct(pct) {
-      trimEndMs = Math.max(s.start + 1000, Math.min(s.end, s.start + Math.round(pct * wallSpan)));
-      var newPct = ((trimEndMs - s.start) / wallSpan) * 100;
-      handle.style.left = 'calc(' + newPct + '% - 3px)';
-      var fillBar = track.querySelector('.tt-trim-track-inner');
-      if (fillBar) fillBar.style.width = newPct + '%';
-      var cutoff = track.querySelector('.tt-trim-cutoff');
-      if (cutoff) cutoff.style.width = (100 - newPct) + '%';
-      var endLabel = document.getElementById('inline-trim-end-' + s.id);
-      var durLabel = document.getElementById('inline-trim-dur-' + s.id);
-      var d = new Date(trimEndMs);
-      if (endLabel) endLabel.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
-      if (durLabel) durLabel.textContent = fmtShort(computeDuration(trimEndMs));
-    }
-
-    var dragging = false;
-    handle.addEventListener('mousedown', function(e) { e.preventDefault(); dragging = true; });
-    handle.addEventListener('touchstart', function() { dragging = true; }, { passive: true });
-    track.addEventListener('mousedown', function(e) {
-      if (e.target === handle) return;
-      applyPct(pctFromEvent(e)); dragging = true;
-    });
-    var onMove = function(e) { if (dragging) applyPct(pctFromEvent(e)); };
-    var onUp = function() { dragging = false; };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('touchmove', onMove, { passive: true });
-    document.addEventListener('mouseup', onUp);
-    document.addEventListener('touchend', onUp);
-  }
-
-  // Calendar click delegation: delete sessions + navigate to day
+  // Calendar click delegation: session editor, delete sessions, navigate to day
   $calView.addEventListener('click', function (e) {
+    if (onTrimAction(e)) return;
     var delBtn = e.target.closest('[data-del-session]');
     if (delBtn) {
       deletingSessionId = delBtn.getAttribute('data-del-session');
@@ -1423,261 +1302,168 @@
       goToDay(dayEl.getAttribute('data-goto-day'));
       return;
     }
-    // Inline editor: cancel
-    var cancelBtn = e.target.closest('[data-inline-cancel]');
-    if (cancelBtn) {
-      editingSession = null;
-      renderCalendar();
-      return;
-    }
-    // Inline editor: reset
-    var resetBtn = e.target.closest('[data-inline-reset]');
-    if (resetBtn) {
-      if (editingSession) { trimEndMs = editingSession.end; renderCalendar(); }
-      return;
-    }
-    // Inline editor: save
-    var saveBtn = e.target.closest('[data-inline-save]');
-    if (saveBtn) {
-      if (editingSession) {
-        var sess = sessions.find(function(s) { return s.id === editingSession.id; });
-        if (sess && trimEndMs < sess.end && trimEndMs > sess.start) {
-          sess.end = trimEndMs;
-          var pausedMs = 0;
-          (sess.pauseLog || []).forEach(function(p) {
-            var ps = Math.max(p.start, sess.start);
-            var pe = Math.min(p.end || trimEndMs, trimEndMs);
-            if (pe > ps) pausedMs += pe - ps;
-          });
-          sess.duration = Math.max(0, trimEndMs - sess.start - pausedMs);
-          if (sess.pauseLog) {
-            sess.pauseLog = sess.pauseLog.filter(function(p) { return p.start < trimEndMs; });
-            sess.pauseLog.forEach(function(p) { if (p.end > trimEndMs) p.end = trimEndMs; });
-          }
-          save('tt_sessions', sessions);
-        }
-      }
-      editingSession = null;
-      renderCalendar();
-      return;
-    }
-    // Click on a session row to open inline editor
+    // Click on a session row to edit it
     var sessItem = e.target.closest('[data-edit-session]');
-    if (sessItem && !e.target.closest('[data-del-session]')) {
+    if (sessItem) {
       var sessId = sessItem.getAttribute('data-edit-session');
       var sess = sessions.find(function(s) { return s.id === sessId; });
       if (sess) openSessionEditor(sess);
     }
   });
 
-  // --- Session Editor (replaces old "last session trim") ---
-  var editingSession = null; // the session being edited in the trim panel
-  var trimEndMs = null;      // current trimmed end timestamp
+  // --- Session Editor: trim the end of a session ---
+  // The session that just stopped opens in the panel under the projects; any other one inline in the list.
+  var editingSession = null; // the session being trimmed
+  var trimEndMs = null;      // its trimmed end
+  var trimDragging = false;
+
+  function hm(ms) { var d = new Date(ms); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+
+  // Time worked from the session start to endMs, minus pauses
+  function sessionDuration(s, endMs) {
+    var pausedMs = 0;
+    (s.pauseLog || []).forEach(function(p) {
+      var ps = Math.max(p.start, s.start);
+      var pe = Math.min(p.end || endMs, endMs);
+      if (pe > ps) pausedMs += pe - ps;
+    });
+    return Math.max(0, endMs - s.start - pausedMs);
+  }
+
+  function editorInPanel() { return !!(editingSession && lastSession && editingSession.id === lastSession.id); }
+
+  function trimPct(s) { return Math.max(1, Math.min(100, ((trimEndMs - s.start) / Math.max(1, s.end - s.start)) * 100)); }
+
+  function editorHtml(s, label) {
+    var proj = getProj(s.projectId);
+    var sub = proj ? getSub(proj, s.subprojectId) : null;
+    var color = proj ? proj.color : '#787878';
+    var name = proj ? esc(displayName(proj.name)) : 'Unknown';
+    if (sub) name += ' / ' + esc(displayName(sub.name));
+    var span = Math.max(1, s.end - s.start), pct = trimPct(s);
+    var h = '<div class="tt-lastsess-inner">';
+    h += '<span class="timer-project-dot" style="background:' + color + '"></span>';
+    h += '<span class="tt-lastsess-name">' + label + ': ' + name + '</span>';
+    h += '<button class="tt-row-btn" data-trim="close" title="Close">' + ICON.close + '</button>';
+    h += '</div>';
+    // Solid: kept. Dithered: paused, or cut off after the handle.
+    h += '<div class="tt-trim-timeline"><div class="tt-trim-track" title="Drag to trim the end">';
+    h += '<div class="tt-trim-track-inner" style="left:0;width:100%;background:' + color + ';"></div>';
+    (s.pauseLog || []).forEach(function(p) {
+      var ps = Math.max(p.start, s.start), pe = Math.min(p.end || s.end, s.end);
+      if (pe > ps) h += '<div class="tt-trim-pause-block" style="left:' + ((ps - s.start) / span) * 100 + '%;width:' + ((pe - ps) / span) * 100 + '%;"></div>';
+    });
+    h += '<div class="tt-trim-cutoff" style="width:' + (100 - pct) + '%;"></div>';
+    h += '<div class="tt-trim-handle" style="left:' + pct + '%;"></div>';
+    h += '</div>';
+    h += '<div class="tt-trim-labels"><span>' + hm(s.start) + '</span><span class="tt-trim-end-label">' + hm(trimEndMs) + '</span><span>' + hm(s.end) + '</span></div>';
+    h += '</div>';
+    h += '<div class="tt-lastsess-footer">';
+    h += '<span class="tt-lastsess-dur">' + fmtShort(sessionDuration(s, trimEndMs)) + '</span>';
+    h += '<span class="tt-cal-nav"><button class="timer-btn-sm" data-trim="reset" title="Back to the original end">Reset</button>';
+    h += '<button class="timer-btn-sm" data-trim="save">Save</button></span>';
+    h += '</div>';
+    return h;
+  }
+
+  // Updates the open editor in place (it may have been re-rendered since the drag began)
+  function updateTrimUI() {
+    var root = document.querySelector('[data-trim-editor]');
+    if (!root || !editingSession) return;
+    var pct = trimPct(editingSession);
+    root.querySelector('.tt-trim-handle').style.left = pct + '%';
+    root.querySelector('.tt-trim-cutoff').style.width = (100 - pct) + '%';
+    root.querySelector('.tt-trim-end-label').textContent = hm(trimEndMs);
+    root.querySelector('.tt-lastsess-dur').textContent = fmtShort(sessionDuration(editingSession, trimEndMs));
+  }
+
+  function trimFromPointer(e) {
+    var root = document.querySelector('[data-trim-editor]');
+    var track = root && root.querySelector('.tt-trim-track');
+    if (!track || !editingSession) return;
+    var s = editingSession, rect = track.getBoundingClientRect();
+    var x = e.touches ? e.touches[0].clientX : e.clientX;
+    var pct = Math.max(0, Math.min(1, (x - rect.left) / rect.width));
+    trimEndMs = Math.max(s.start + 1000, Math.min(s.end, s.start + Math.round(pct * (s.end - s.start))));
+    updateTrimUI();
+  }
+
+  // Registered once: press anywhere on the track to move the end there, then drag
+  document.addEventListener('mousedown', function (e) {
+    if (!e.target.closest('.tt-trim-track')) return;
+    e.preventDefault();
+    trimDragging = true;
+    trimFromPointer(e);
+  });
+  document.addEventListener('touchstart', function (e) {
+    if (!e.target.closest('.tt-trim-track')) return;
+    trimDragging = true;
+    trimFromPointer(e);
+  }, { passive: true });
+  document.addEventListener('mousemove', function (e) { if (trimDragging) trimFromPointer(e); });
+  document.addEventListener('touchmove', function (e) { if (trimDragging) trimFromPointer(e); }, { passive: true });
+  document.addEventListener('mouseup', function () { trimDragging = false; });
+  document.addEventListener('touchend', function () { trimDragging = false; });
+
+  function closeEditor() {
+    editingSession = null;
+    lastSession = null;
+    renderLastSession();
+    renderCalendar();
+  }
+
+  // Close, reset and save buttons of either editor. Returns true when it handled the click.
+  function onTrimAction(e) {
+    var btn = e.target.closest('[data-trim]');
+    if (!btn || !editingSession) return false;
+    var action = btn.getAttribute('data-trim');
+    if (action === 'reset') {
+      trimEndMs = editingSession.end;
+      updateTrimUI();
+      return true;
+    }
+    if (action === 'save') {
+      var sess = sessions.find(function(s) { return s.id === editingSession.id; });
+      if (sess && trimEndMs < sess.end && trimEndMs > sess.start) {
+        sess.end = trimEndMs;
+        sess.duration = sessionDuration(sess, trimEndMs);
+        if (sess.pauseLog) {
+          sess.pauseLog = sess.pauseLog.filter(function(p) { return p.start < trimEndMs; });
+          sess.pauseLog.forEach(function(p) { if (p.end > trimEndMs) p.end = trimEndMs; });
+        }
+        save('tt_sessions', sessions);
+      }
+    }
+    closeEditor();
+    return true;
+  }
 
   function openSessionEditor(sess) {
+    if (lastSession && lastSession.id !== sess.id) lastSession = null; // one editor at a time
     editingSession = sess;
     trimEndMs = sess.end;
-    // For last session → use the tt-lastsess panel (lastSession still set)
-    // For list sessions → inline within the session list
-    if (lastSession && lastSession.id === sess.id) {
-      renderLastSession();
-      var $ls = document.getElementById('last-session-trim');
-      if ($ls) $ls.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    } else {
-      renderCalendar();
-    }
+    renderLastSession();
+    renderCalendar();
+    var $editor = document.querySelector('[data-trim-editor]');
+    if ($editor) $editor.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   function renderLastSession() {
     var $ls = document.getElementById('last-session-trim');
     if (!$ls) return;
-
-    // Backward-compat: if lastSession is set but editingSession isn't, open it
+    // A session that just stopped opens here, ready to trim
     if (lastSession && !editingSession) {
       editingSession = lastSession;
       trimEndMs = lastSession.end;
     }
-
-    if (!editingSession) { $ls.style.display = 'none'; return; }
-
-    var s = editingSession;
-    var proj = getProj(s.projectId);
-    var sub = proj ? getSub(proj, s.subprojectId) : null;
-    var color = proj ? proj.color : '#888';
-    var name = proj ? esc(displayName(proj.name)) : 'Unknown';
-    if (sub) name += ' / ' + esc(displayName(sub.name));
-
-    var wallSpan = s.end - s.start; // total wall-clock ms
-    if (wallSpan < 1) wallSpan = 1;
-
-    // Build pause blocks as % of wall span
-    var pauseBlocks = [];
-    (s.pauseLog || []).forEach(function(p) {
-      var ps = Math.max(p.start, s.start);
-      var pe = Math.min(p.end || s.end, s.end);
-      if (pe > ps) {
-        pauseBlocks.push({
-          left: ((ps - s.start) / wallSpan) * 100,
-          width: ((pe - ps) / wallSpan) * 100
-        });
-      }
-    });
-
-    // Handle position as % of wall span
-    var handlePct = ((trimEndMs - s.start) / wallSpan) * 100;
-    handlePct = Math.max(1, Math.min(100, handlePct));
-
-    // Duration = trimmed end - start - paused time that falls within trimmed range
-    function computeDuration(endMs) {
-      var pausedMs = 0;
-      (s.pauseLog || []).forEach(function(p) {
-        var ps = Math.max(p.start, s.start);
-        var pe = Math.min(p.end || endMs, endMs);
-        if (pe > ps) pausedMs += pe - ps;
-      });
-      return Math.max(0, endMs - s.start - pausedMs);
-    }
-
-    var startTime = new Date(s.start);
-    var endTime   = new Date(trimEndMs);
-    var dur = computeDuration(trimEndMs);
-
-    var isLastSess = lastSession && lastSession.id === s.id;
-
-    var html = '<div class="tt-lastsess-inner">';
-    html += '<span class="timer-project-dot" style="background:' + color + '"></span>';
-    html += '<span class="tt-lastsess-name">' + (isLastSess ? 'Last Session: ' : 'Edit Session: ') + name + '</span>';
-    html += '<button class="tt-row-btn" id="trim-dismiss" title="Dismiss">&times;</button>';
-    html += '</div>';
-
-    // Visual timeline
-    html += '<div class="tt-trim-timeline">';
-    html += '<div class="tt-trim-track" id="trim-track">';
-    // Session fill bar
-    html += '<div class="tt-trim-track-inner" style="left:0;width:' + handlePct + '%;background:' + color + ';"></div>';
-    // Pause blocks
-    pauseBlocks.forEach(function(pb) {
-      html += '<div class="tt-trim-pause-block" style="left:' + pb.left + '%;width:' + pb.width + '%;"></div>';
-    });
-    // Cutoff overlay (grey area to the right of handle)
-    html += '<div class="tt-trim-cutoff" style="width:' + (100 - handlePct) + '%;right:0;left:auto;"></div>';
-    // Draggable handle
-    html += '<div class="tt-trim-handle" id="trim-handle" style="left:calc(' + handlePct + '% - 3px);" title="Drag to trim end time"></div>';
-    html += '</div>'; // track
-
-    html += '<div class="tt-trim-labels">';
-    html += '<span>' + pad(startTime.getHours()) + ':' + pad(startTime.getMinutes()) + '</span>';
-    html += '<span class="tt-trim-end-label" id="trim-end-label">' + pad(endTime.getHours()) + ':' + pad(endTime.getMinutes()) + '</span>';
-    html += '<span>' + pad(new Date(s.end).getHours()) + ':' + pad(new Date(s.end).getMinutes()) + '</span>';
-    html += '</div>';
-    html += '</div>'; // timeline
-
-    html += '<div class="tt-lastsess-footer">';
-    html += '<span class="tt-lastsess-dur" id="trim-dur-label">' + fmtShort(dur) + '</span>';
-    html += '<div style="display:flex;gap:0.5rem;">';
-    html += '<button class="timer-btn-sm" id="trim-reset" title="Reset to original end">Reset</button>';
-    html += '<button class="timer-btn-sm" id="trim-done">Save</button>';
-    html += '</div>';
-    html += '</div>';
-
-    $ls.innerHTML = html;
-    $ls.style.display = '';
-
-    // --- Drag logic ---
-    var track = document.getElementById('trim-track');
-    var handle = document.getElementById('trim-handle');
-    if (!track || !handle) return;
-
-    function pctFromEvent(e) {
-      var rect = track.getBoundingClientRect();
-      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    }
-
-    function applyPct(pct) {
-      trimEndMs = s.start + Math.round(pct * wallSpan);
-      trimEndMs = Math.max(s.start + 1000, Math.min(s.end, trimEndMs));
-      var newPct = ((trimEndMs - s.start) / wallSpan) * 100;
-      handle.style.left = 'calc(' + newPct + '% - 3px)';
-      // Update fill bar
-      var fillBar = track.querySelector('.tt-trim-track-inner');
-      if (fillBar) fillBar.style.width = newPct + '%';
-      // Update cutoff
-      var cutoff = track.querySelector('.tt-trim-cutoff');
-      if (cutoff) cutoff.style.width = (100 - newPct) + '%';
-      // Update labels
-      var d = new Date(trimEndMs);
-      var endLabel = document.getElementById('trim-end-label');
-      var durLabel = document.getElementById('trim-dur-label');
-      if (endLabel) endLabel.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
-      if (durLabel) durLabel.textContent = fmtShort(computeDuration(trimEndMs));
-    }
-
-    var dragging = false;
-    handle.addEventListener('mousedown', function(e) { e.preventDefault(); dragging = true; });
-    handle.addEventListener('touchstart', function(e) { dragging = true; }, { passive: true });
-
-    // Also allow clicking anywhere on the track to jump the handle
-    track.addEventListener('mousedown', function(e) {
-      if (e.target === handle) return;
-      applyPct(pctFromEvent(e));
-      dragging = true;
-    });
-
-    document.addEventListener('mousemove', function onMove(e) {
-      if (!dragging) return;
-      applyPct(pctFromEvent(e));
-    });
-    document.addEventListener('touchmove', function onTouchMove(e) {
-      if (!dragging) return;
-      applyPct(pctFromEvent(e));
-    }, { passive: true });
-    document.addEventListener('mouseup', function onUp() { dragging = false; });
-    document.addEventListener('touchend', function onTouchEnd() { dragging = false; });
+    var show = editorInPanel();
+    $ls.toggleAttribute('data-trim-editor', show);
+    $ls.style.display = show ? '' : 'none';
+    if (show) $ls.innerHTML = editorHtml(editingSession, 'Last session');
   }
 
-  // Trim / session editor event delegation
   var $lsContainer = document.getElementById('last-session-trim');
-  if ($lsContainer) {
-    $lsContainer.addEventListener('click', function(e) {
-      if (e.target.id === 'trim-dismiss') {
-        editingSession = null;
-        lastSession = null;
-        renderLastSession();
-        return;
-      }
-      if (e.target.id === 'trim-reset') {
-        if (editingSession) { trimEndMs = editingSession.end; renderLastSession(); }
-        return;
-      }
-      if (e.target.id === 'trim-done') {
-        if (!editingSession) return;
-        var sess = sessions.find(function(s) { return s.id === editingSession.id; });
-        if (sess && trimEndMs < sess.end && trimEndMs > sess.start) {
-          sess.end = trimEndMs;
-          // Recompute duration accounting for pauses
-          var pausedMs = 0;
-          (sess.pauseLog || []).forEach(function(p) {
-            var ps = Math.max(p.start, sess.start);
-            var pe = Math.min(p.end || trimEndMs, trimEndMs);
-            if (pe > ps) pausedMs += pe - ps;
-          });
-          sess.duration = Math.max(0, trimEndMs - sess.start - pausedMs);
-          // Clip pauses
-          if (sess.pauseLog) {
-            sess.pauseLog = sess.pauseLog.filter(function(p) { return p.start < trimEndMs; });
-            sess.pauseLog.forEach(function(p) { if (p.end > trimEndMs) p.end = trimEndMs; });
-          }
-          save('tt_sessions', sessions);
-          renderCalendar();
-        }
-        editingSession = null;
-        lastSession = null;
-        renderLastSession();
-        return;
-      }
-    });
-  }
+  if ($lsContainer) $lsContainer.addEventListener('click', onTrimAction);
 
   var $btnShareInsights = document.getElementById('btn-share-insights');
   if ($btnShareInsights) {
@@ -1693,66 +1479,32 @@
   }
 
   function generateInsightsImage() {
-    var title = currentView === 'weekly' ? 'Weekly Insight' : 'Monthly Insight';
     var periodLabel = $calLabel.textContent;
     var totalTime = document.getElementById('view-total') ? document.getElementById('view-total').textContent : '0h 0m';
-    
-    var btnLeg = document.getElementById('insights-legend-btn');
-    var withLegend = btnLeg && btnLeg.getAttribute('data-checked') !== '0';
+    var $legend = document.getElementById('insights-legend');
+    var withLegend = !$legend || $legend.checked;
 
+    // Rendered off-screen with the page's own styles, then captured
     var wrap = document.createElement('div');
-    wrap.style.position = 'absolute';
-    wrap.style.top = '-9999px';
-    wrap.style.left = '-9999px';
-    wrap.style.width = '800px';
-    
-    var bg = getComputedStyle(document.body).backgroundColor;
-    var fg = getComputedStyle(document.body).color;
-    var fontMono = getComputedStyle(document.documentElement).getPropertyValue('--font-mono') || 'monospace';
-    var fontHeading = getComputedStyle(document.documentElement).getPropertyValue('--font-heading') || 'sans-serif';
+    wrap.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:800px;padding:40px;background:#000;color:#fff;border:2px solid #7869c4;';
 
-    wrap.style.backgroundColor = bg;
-    wrap.style.color = fg;
-    wrap.style.padding = '40px';
-    wrap.style.border = '4px solid ' + fg;
-    wrap.style.boxSizing = 'border-box';
-    wrap.style.fontFamily = fontMono;
-
-    var html = '<div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 4px solid ' + fg + '; padding-bottom: 15px; margin-bottom: 30px;">';
-    html += '<h1 style="font-family: ' + fontHeading + '; font-weight: 900; font-size: 42px; margin: 0; text-transform: uppercase;">ES. TIMER</h1>';
-    html += '<div style="text-align: right;">';
-    html += '<div style="font-size: 20px; font-weight: bold; text-transform: uppercase;">' + periodLabel + '</div>';
-    html += '<div style="font-size: 16px;">TOTAL: ' + totalTime + '</div>';
-    html += '</div></div>';
-    
+    var html = '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:32px;padding-bottom:16px;margin-bottom:32px;border-bottom:2px solid #40318d;">';
+    html += '<div>Timer <span style="color:#787878;">elhoussain.me</span></div>';
+    html += '<div style="text-align:right;">' + esc(periodLabel) + ' <span style="color:#9f9f9f;">' + totalTime + '</span></div>';
+    html += '</div>';
     wrap.innerHTML = html;
 
     var calView = document.getElementById('calendar-view');
     if (calView) {
       var clone = calView.cloneNode(true);
       if (!withLegend) {
-        var statItems = clone.querySelectorAll('.tt-stat-item');
-        for (var i = 0; i < statItems.length; i++) {
-          if (statItems[i].innerHTML.indexOf('Top Project') !== -1) {
-            var valDiv = statItems[i].querySelector('.tt-stat-val');
-            if (valDiv) valDiv.textContent = '***';
-          }
-        }
-        var statBars = clone.querySelector('.tt-stats-banner > div[style*="width: 100%"]');
+        var top = clone.querySelector('.tt-stat-top .tt-stat-val');
+        if (top) top.textContent = '***';
+        var statBars = clone.querySelector('.tt-stats-bar');
         if (statBars) statBars.style.display = 'none';
       }
       wrap.appendChild(clone);
     }
-
-    var watermark = document.createElement('div');
-    watermark.style.position = 'absolute';
-    watermark.style.bottom = '20px';
-    watermark.style.right = '20px';
-    watermark.style.fontFamily = fontMono;
-    watermark.style.fontSize = '12px';
-    watermark.style.opacity = '0.5';
-    watermark.textContent = 'elhoussain.me';
-    wrap.appendChild(watermark);
 
     if (withLegend) {
       var targetSessions = [];
@@ -1786,15 +1538,15 @@
       projArr.sort(function(a, b) { return b.dur - a.dur; });
 
       if (projArr.length > 0) {
-        var legHtml = '<div style="margin-top: 30px; padding-top: 20px; border-top: 2px dashed ' + fg + '55; display: flex; flex-wrap: wrap; gap: 20px;">';
+        var legHtml = '<div style="display:flex;flex-wrap:wrap;gap:16px 32px;margin-top:32px;padding-top:16px;border-top:2px solid #40318d;">';
         projArr.forEach(function(pItem) {
           var p = getProj(pItem.id);
           var name = p ? p.name : 'Unknown';
-          var color = p ? p.color : '#888';
-          legHtml += '<div style="display: flex; align-items: center; gap: 8px; font-size: 14px;">';
-          legHtml += '<span style="width: 14px; height: 14px; background: ' + color + '; display: inline-block;"></span>';
-          legHtml += '<strong>' + esc(name).toUpperCase() + '</strong>';
-          legHtml += '<span style="opacity: 0.7;">' + fmtShort(pItem.dur) + '</span>';
+          var color = p ? p.color : '#787878';
+          legHtml += '<div style="display:flex;align-items:center;gap:16px;">';
+          legHtml += '<span style="width:12px;height:12px;background:' + color + ';"></span>';
+          legHtml += '<span>' + esc(name) + '</span>';
+          legHtml += '<span style="color:#9f9f9f;">' + fmtShort(pItem.dur) + '</span>';
           legHtml += '</div>';
         });
         legHtml += '</div>';
@@ -1810,65 +1562,47 @@
     var originalBtnText = $btnShareInsights.textContent;
     $btnShareInsights.textContent = 'Generating...';
     
-    // Also show generating state in modal if it's already open
+    var $modal = document.getElementById('insights-modal');
     var $imgContainer = document.getElementById('insights-img-container');
-    if ($imgContainer && document.getElementById('insights-modal').style.display === 'flex') {
-       $imgContainer.innerHTML = '<div style="padding: 2rem;">Generating Image...</div>';
+    if ($imgContainer && $modal.open) {
+       $imgContainer.innerHTML = '<p class="empty">Generating image...</p>';
     }
 
     loadHtml2Canvas(function() {
       setTimeout(function() {
         html2canvas(wrap, {
-          backgroundColor: bg,
+          backgroundColor: '#000000',
           scale: 2,
           logging: false
         }).then(function(canvas) {
           document.body.removeChild(wrap);
           $btnShareInsights.textContent = originalBtnText;
           var imgUrl = canvas.toDataURL("image/png");
-          
-          var $modal = document.getElementById('insights-modal');
           var $btnDl = document.getElementById('insights-download-btn');
           
           if ($modal && $imgContainer && $btnDl) {
-            $imgContainer.innerHTML = '<img src="' + imgUrl + '" style="max-width: 100%; max-height: 60vh; display: block; border: 2px solid ' + fg + ';">';
+            $imgContainer.innerHTML = '<img src="' + imgUrl + '" alt="Timer insights for ' + esc(periodLabel) + '">';
             $btnDl.href = imgUrl;
             var dlName = 'es-timer-' + currentView + '-' + new Date().toISOString().split('T')[0] + '.png';
             $btnDl.setAttribute('download', dlName);
-            $modal.style.display = 'flex';
+            if (!$modal.open) $modal.showModal();
           }
         });
       }, 50);
     });
   }
 
-  var $legendBtn = document.getElementById('insights-legend-btn');
-  if ($legendBtn) {
-    $legendBtn.setAttribute('data-checked', '1');
-    $legendBtn.addEventListener('click', function() {
-      var isChecked = $legendBtn.getAttribute('data-checked') === '1';
-      if (isChecked) {
-        $legendBtn.setAttribute('data-checked', '0');
-        $legendBtn.innerHTML = '&#9744; INCLUDE PROJECT LEGEND';
-        $legendBtn.style.color = '#F4F4F4';
-        $legendBtn.style.background = 'transparent';
-      } else {
-        $legendBtn.setAttribute('data-checked', '1');
-        $legendBtn.innerHTML = '&#9745; INCLUDE PROJECT LEGEND';
-        $legendBtn.style.color = '#1A1A1A';
-        $legendBtn.style.background = '#F4F4F4';
-      }
-      if (document.getElementById('insights-modal').style.display === 'flex') {
-         generateInsightsImage();
-      }
+  var $legendToggle = document.getElementById('insights-legend');
+  if ($legendToggle) {
+    $legendToggle.addEventListener('change', function() {
+      if (document.getElementById('insights-modal').open) generateInsightsImage();
     });
   }
 
   var $modalClose = document.getElementById('insights-close');
   if ($modalClose) {
     $modalClose.addEventListener('click', function() {
-      var $modal = document.getElementById('insights-modal');
-      if ($modal) $modal.style.display = 'none';
+      document.getElementById('insights-modal').close();
     });
   }
 
@@ -1923,19 +1657,7 @@
   }
   */
 
-  // --- Global Keyboard Shortcuts ---
-  document.addEventListener('keydown', function(e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    
-    var key = e.key.toLowerCase();
-    if (key === 'd') {
-      setView('daily');
-    } else if (key === 'w') {
-      setView('weekly');
-    } else if (key === 'm') {
-      setView('monthly');
-    }
-  });
+  // Keyboard shortcuts (D, W, M) come from the data-key hints on the view buttons (main.js)
 
   // --- Init ---
   if (active) startTick();
