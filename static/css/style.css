@@ -219,6 +219,8 @@ kbd {
 }
 
 .frame::before,
+.post-row:hover::before,
+.post-row:focus-within::before,
 .btn:hover::before,
 .btn:focus-visible::before,
 .toggle[aria-pressed="true"]::before,
@@ -806,19 +808,46 @@ input[type="checkbox"]:checked {
    POSTS
    ============================================ */
 .post-list {
+  margin-top: calc(-1 * var(--c));
   list-style: none;
 }
 
+/* Each post is one link: cyan title with an arrow; the whole row is the hit area
+   and takes the frame and corner nodes on hover or keyboard focus */
 .post-row {
+  position: relative;
   display: grid;
   grid-template-columns: 12ch minmax(0, 1fr);
   gap: calc(2 * var(--c));
-  padding-block: calc(2 * var(--c));
-  border-bottom: var(--d) solid var(--frame-dim);
+  margin-inline: calc(-1 * var(--c) - var(--d));
+  padding: calc(2 * var(--c)) var(--c);
+  border: var(--d) solid transparent;
 }
 
-.post-row:first-child {
-  padding-top: 0;
+/* Divider, aligned with the text column rather than the wider hover frame */
+.post-row::after {
+  content: "";
+  position: absolute;
+  left: var(--c);
+  right: var(--c);
+  bottom: calc(-1 * var(--d));
+  height: var(--d);
+  background: var(--frame-dim);
+}
+
+.post-row + .post-row {
+  margin-top: calc(-1 * var(--d));
+}
+
+.post-row:hover,
+.post-row:focus-within {
+  z-index: 1;
+  border-color: var(--frame);
+}
+
+.post-row:hover::after,
+.post-row:focus-within::after {
+  display: none;
 }
 
 .post-date {
@@ -830,11 +859,24 @@ input[type="checkbox"]:checked {
 }
 
 .post-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 1ch;
+  color: var(--link);
+}
+
+.post-title::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.post-row:hover .post-title {
   color: var(--text);
 }
 
-.post-title:hover {
-  color: var(--node);
+.post-title:focus-visible {
+  outline: none;
 }
 
 .post-desc {
@@ -842,10 +884,21 @@ input[type="checkbox"]:checked {
   color: var(--text-2);
 }
 
+/* Tags are secondary links: grey, white on hover, above the row's hit area */
 .tags {
   display: flex;
   flex-wrap: wrap;
   gap: 0 2ch;
+}
+
+.tags a {
+  position: relative;
+  z-index: 1;
+  color: var(--text-3);
+}
+
+.tags a:hover {
+  color: var(--text);
 }
 
 .term-list {
