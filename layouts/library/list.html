@@ -18,26 +18,26 @@
   <div class="books">
     {{ range . }}
     {{ $title := .title }}
-    <article class="book frame"{{ with .categories }} data-tags="{{ delimit . "," }}"{{ end }}>
-      {{ with .cover }}<img class="book-cover dither" src="{{ . }}" alt="Cover of {{ $title }}" loading="lazy">{{ end }}
+    <article class="book" id="{{ anchorize .title }}"{{ with .categories }} data-tags="{{ delimit . "," }}"{{ end }}>
+      {{ with .cover }}<img class="book-cover" src="{{ . }}" alt="Cover of {{ $title }}" loading="lazy">{{ end }}
       <div class="book-body">
         <h2>{{ .title }}</h2>
         {{ with .author }}<p class="book-author">{{ . }}</p>{{ end }}
         {{ with .rating }}
         {{ $r := int . }}
-        <p class="readout" aria-label="Rated {{ $r }} out of 5">
-          <span class="meter" aria-hidden="true">{{ range seq 5 }}<i{{ if le . $r }} class="on"{{ end }}></i>{{ end }}</span>
-          <span class="readout-value">{{ $r }}/5</span>
-        </p>
+        <p class="label" aria-label="Rated {{ $r }} out of 5">{{ $r }}/5</p>
         {{ end }}
         {{ with .review }}<p class="book-review">{{ . }}</p>{{ end }}
+        {{ range where (where site.RegularPages "Section" "blog") "Params.book" $title }}
+        <a href="{{ .RelPermalink }}" class="hint">Read my notes<i class="ic ic-right"></i></a>
+        {{ end }}
         {{ with .categories }}<p class="book-cats">{{ delimit . ", " }}</p>{{ end }}
       </div>
     </article>
     {{ end }}
   </div>
   {{ else }}
-  <p class="frame empty">Books will be added to the library.</p>
+  <p class="empty">Books will be added to the library.</p>
   {{ end }}
 </div>
 {{ end }}

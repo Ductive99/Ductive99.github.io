@@ -1,6 +1,8 @@
 baseURL = "https://elhoussain.me/"
 languageCode = "en-us"
 title = "El Houssain Souhail"
+# The Obsidian vault lives in content/blog: keep its note templates out of the build.
+ignoreFiles = ['/content/blog/templates/']
 [pagination]
   pagerSize = 10
 
@@ -10,18 +12,20 @@ title = "El Houssain Souhail"
 
   # Used by the home hero, the footer and the links page.
   [[params.social]]
+    name = "GitLab"
+    icon = "gitlab"
+    handle = "@elhoussain"
+    note = "Open source projects and code"
+    url = "https://gitlab.com/elhoussain"
+  [[params.social]]
     name = "GitHub"
+    icon = "github"
     handle = "@ductive99"
     note = "Open source projects and code"
     url = "https://github.com/ductive99"
   [[params.social]]
-    name = "GitLab"
-    handle = "@elhoussain"
-    note = "Open source projects and code"
-    url = "https://gitlab.com/elhoussain"
-    new = true
-  [[params.social]]
     name = "LinkedIn"
+    icon = "linkedin"
     note = "Professional profile and experience"
     url = "https://linkedin.com/in/elhoussain"
 
@@ -39,6 +43,7 @@ title = "El Houssain Souhail"
       taskList = true
     [markup.goldmark.parser]
       autoHeadingID = true
+      wrapStandAloneImageWithinParagraph = false
       [markup.goldmark.parser.attribute]
         block = true
         title = true
@@ -46,17 +51,17 @@ title = "El Houssain Souhail"
     codeFences = true
     guessSyntax = true
     lineNos = false
+    lineNumbersInTable = false
     noClasses = false
+  [markup.tableOfContents]
+    startLevel = 2
+    endLevel = 3
 
 [outputs]
   home = ["HTML"]
   section = ["HTML"]
 
 [menu]
-  [[menu.main]]
-    name = "Home"
-    url = "/"
-    weight = 1
   [[menu.main]]
     name = "Blog"
     url = "/blog/"

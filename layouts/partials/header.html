@@ -1,15 +1,13 @@
-<header class="topbar">
-  <div class="wrap topbar-inner">
-    <a href="{{ "/" | relURL }}" class="brand">
-      <img src="{{ "images/favicon.svg" | relURL }}" alt="" width="16" height="16">
+<header class="site-head">
+  <div class="wrap site-head-inner">
+    <a href="{{ "/" | relURL }}" class="brand" data-void>
+      <img src="{{ "images/favicon.svg" | relURL }}" alt="" width="22" height="22">
       El Houssain Souhail
     </a>
-    <button class="hint menu-btn" id="menu-btn" aria-expanded="false" aria-controls="site-nav">Menu</button>
-    <nav class="nav" id="site-nav" aria-label="Main navigation">
-      {{ range $i, $item := .Site.Menus.main }}
-      {{ $key := add $i 1 }}
-      {{ $current := or ($.IsMenuCurrent "main" $item) (and $.IsHome (eq $item.URL "/")) (and $.Section (eq $item.URL (printf "/%s/" $.Section))) }}
-      <a href="{{ $item.URL | relURL }}" class="hint" data-key="{{ $key }}"{{ if $current }} aria-current="page"{{ end }}><kbd>{{ $key }}</kbd>{{ $item.Name }}</a>
+    <nav class="nav" aria-label="Main navigation" data-void>
+      {{ range .Site.Menus.main }}
+      {{ $current := or ($.IsMenuCurrent "main" .) (and $.Section (eq .URL (printf "/%s/" $.Section))) }}
+      <a href="{{ .URL | relURL }}"{{ if $current }} aria-current="page"{{ end }}>{{ .Name }}</a>
       {{ end }}
     </nav>
   </div>

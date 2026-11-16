@@ -1,28 +1,11 @@
 // ============================================
-// Nebula site script: navigation, filters, the pixel clock,
-// dithered images and the generative space art (nebula-design.md).
+// Site script: key hints, filters, the year readout and the generated topographic map.
 // ============================================
 (function () {
   'use strict';
 
   var root = document.documentElement;
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // One dot, in CSS px (changes with the breakpoint)
-  function dot() { return parseFloat(getComputedStyle(root).getPropertyValue('--d')) || 2; }
-
-  // ============================================
-  // Mobile menu
-  // ============================================
-  var menuBtn = document.getElementById('menu-btn');
-  var nav = document.getElementById('site-nav');
-  if (menuBtn && nav) {
-    menuBtn.addEventListener('click', function () {
-      var open = nav.classList.toggle('open');
-      menuBtn.setAttribute('aria-expanded', open);
-      menuBtn.textContent = open ? 'Close' : 'Menu';
-    });
-  }
 
   // ============================================
   // Key hints: an element with data-key="x" is clicked when x is pressed
@@ -58,394 +41,390 @@
   });
 
   // ============================================
-  // Big clock digits, drawn from the ROM font's 8x8 glyphs (spec 4.1)
+  // Code blocks: the copy button, without the line numbers or the last newline
   // ============================================
-  var GLYPHS = {
-    '0': [60, 102, 110, 118, 102, 102, 60], '1': [24, 24, 56, 24, 24, 24, 126],
-    '2': [60, 102, 6, 12, 48, 96, 126], '3': [60, 102, 6, 28, 6, 102, 60],
-    '4': [6, 14, 30, 102, 127, 6, 6], '5': [126, 96, 124, 6, 6, 102, 60],
-    '6': [60, 102, 96, 124, 102, 102, 60], '7': [126, 102, 12, 24, 24, 24, 24],
-    '8': [60, 102, 102, 60, 102, 102, 60], '9': [60, 102, 102, 62, 6, 102, 60],
-    ':': [0, 0, 24, 0, 0, 24, 0]
-  };
-  var RAMP = ['#ffffff', '#ffffff', '#ffffff', '#9f9f9f', '#9f9f9f', '#67b6bd', '#7869c4'];
-
-  // Draws text into a <canvas class="big">. data-px = dots per glyph pixel (5), data-fit shrinks it to its container.
-  function drawBig(cv, text) {
-    var d = dot(), s = +cv.getAttribute('data-px') || 5;
-    if (cv.hasAttribute('data-fit')) {
-      var room = cv.parentElement.clientWidth / d - 2;
-      s = Math.max(2, Math.min(s, Math.floor(room / (text.length * 8))));
-    }
-    var w = text.length * 8 * s + 2, h = 7 * s + 2;
-    cv.width = w;
-    cv.height = h;
-    cv.style.width = w * d + 'px';
-    cv.style.height = h * d + 'px';
-    cv.style.marginLeft = -s * d + 'px'; // the glyphs' first column is blank
-    var ctx = cv.getContext('2d');
-    // Blue shadow 2 dots down and right, then the chrome ramp on top
-    for (var pass = 0; pass < 2; pass++) {
-      var off = pass ? 0 : 2;
-      for (var i = 0; i < text.length; i++) {
-        var g = GLYPHS[text[i]];
-        if (!g) continue;
-        for (var y = 0; y < 7; y++) {
-          ctx.fillStyle = pass ? RAMP[y] : '#40318d';
-          for (var x = 0; x < 8; x++) {
-            if (g[y] & (128 >> x)) ctx.fillRect((i * 8 + x) * s + off, y * s + off, s, s);
-          }
-        }
-      }
-    }
-    cv.setAttribute('aria-label', text);
-    cv._text = text;
-  }
-  window.drawBig = drawBig;
-
-  document.querySelectorAll('canvas.big[data-text]').forEach(function (cv) {
-    drawBig(cv, cv.getAttribute('data-text'));
-  });
-
-  window.addEventListener('resize', function () {
-    document.querySelectorAll('canvas.big').forEach(function (cv) {
-      if (cv._text) drawBig(cv, cv._text);
+  if (navigator.clipboard) {
+    document.querySelectorAll('[data-copy]').forEach(function (btn) {
+      btn.hidden = false;
+      btn.addEventListener('click', function () {
+        var code = btn.closest('.code').querySelector('pre').cloneNode(true);
+        code.querySelectorAll('.ln').forEach(function (n) { n.remove(); });
+        navigator.clipboard.writeText(code.textContent.replace(/\n$/, '')).then(function () {
+          btn.textContent = 'Copied';
+          setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+        });
+      });
     });
-  });
+  }
+
+  // ============================================
+  // Sidenotes: each footnote is copied into the margin, level with its reference.
+  // The stylesheet shows the copies on wide screens and the list under the post everywhere else.
+  // ============================================
+  var footnotes = document.querySelector('.prose > .footnotes');
+  if (footnotes) {
+    var prose = footnotes.parentElement, sides = [];
+    footnotes.querySelectorAll('li[id]').forEach(function (li) {
+      var ref = prose.querySelector('a.footnote-ref[href="#' + CSS.escape(li.id) + '"]');
+      if (!ref) return;
+      var side = document.createElement('aside');
+      side.className = 'sidenote';
+      side.innerHTML = li.innerHTML;
+      side.querySelectorAll('.footnote-backref').forEach(function (b) { b.remove(); });
+      side.setAttribute('data-n', ref.textContent);
+      prose.appendChild(side);
+      sides.push([ref, side]);
+    });
+    prose.classList.add('has-sidenotes');
+    // Level with the reference, or just under the note before it
+    new ResizeObserver(function () {
+      var top = prose.getBoundingClientRect().top, free = 0;
+      sides.forEach(function (pair) {
+        var y = Math.max(free, pair[0].getBoundingClientRect().top - top);
+        pair[1].style.top = y + 'px';
+        free = y + pair[1].offsetHeight + 16;
+      });
+    }).observe(prose);
+  }
+
+  // ============================================
+  // New post notice (home): the newest post under a week old that this browser has not opened.
+  // Opening a post is remembered in localStorage; without storage the notice just shows for the week.
+  // ============================================
+  function opened(path) {
+    try { return localStorage.getItem('read:' + path); } catch (e) { return null; }
+  }
+
+  if (document.querySelector('[data-post]')) {
+    try { localStorage.setItem('read:' + location.pathname, '1'); } catch (e) {}
+  }
+
+  function announce() {
+    var shown = false;
+    document.querySelectorAll('[data-new]').forEach(function (a) {
+      var fresh = Date.now() - new Date(a.getAttribute('data-new')) < 7 * 864e5;
+      a.hidden = shown || !fresh || !!opened(a.pathname);
+      shown = shown || !a.hidden;
+    });
+  }
+
+  announce();
+  window.addEventListener('pageshow', announce); // coming back from the post with the Back button
 
   var pathEl = document.querySelector('[data-path]');
-  if (pathEl) pathEl.textContent = 'Nothing at ' + location.pathname;
+  if (pathEl) pathEl.textContent = 'Nothing is charted at ' + location.pathname;
 
-  // ============================================
-  // Year readout in the bottom bar: ten segments, like the battery meter
-  // ============================================
-  var year = document.querySelector('[data-year-meter]');
+  // How much of the year has gone by, in the footer
+  var year = document.querySelector('[data-year]');
   if (year) {
     var now = new Date(), y = now.getFullYear();
     var share = (now - new Date(y, 0, 1)) / (new Date(y + 1, 0, 1) - new Date(y, 0, 1));
-    year.querySelectorAll('.meter i').forEach(function (seg, i) {
-      seg.classList.toggle('on', i < Math.round(share * 10));
-    });
-    year.querySelector('[data-year]').textContent = y;
-    year.querySelector('[data-year-value]').textContent = Math.floor(share * 100) + '%';
-    year.title = Math.floor(share * 100) + '% of ' + y + ' has passed';
+    year.textContent = y + ' is ' + Math.floor(share * 100) + '% over';
     year.hidden = false;
   }
 
   // ============================================
-  // Images reduced to the 16 colours with 4x4 ordered dithering, one image pixel per dot
+  // Background art: a topographic map of terrain generated at random on every load.
+  // Heights come from seeded noise and contour lines are traced with marching squares.
+  // Text ([data-void]) pushes the ground down, so it always sits in open water and
+  // the land rises in the empty parts of the page.
+  // Left alone, only the shore moves: a slow swell that fades out with height.
+  // A click raises a summit under the pointer, and moving the pointer leaves a wake that settles back.
   // ============================================
-  var PALETTE = [
-    [0, 0, 0], [255, 255, 255], [136, 57, 50], [103, 182, 189], [139, 63, 150], [85, 160, 73], [64, 49, 141], [191, 206, 114],
-    [139, 84, 41], [87, 66, 0], [184, 105, 98], [80, 80, 80], [120, 120, 120], [148, 224, 137], [120, 105, 196], [159, 159, 159]
-  ];
-  var BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  var GRID = 6;        // px between height samples
+  var STEP = 0.07;     // height between contour lines; every 5th is drawn heavier
+  var STEP_M = 50;     // metres one contour stands for, in the readouts
+  var WATER_LINES = 2; // depth lines drawn below the coast
+  var REVEAL_MS = 1400;
+  var SWELL = 0.05;    // height the shore rises and falls by when nothing else moves
+  var SHORE = 0.15;    // height above or below sea level at which the swell has mostly died out
+  var REACH = 90;      // px a click or the pointer reaches over the ground
+  var WAKE = 0.005;    // height the pointer pushes up per px it travels
+  var SETTLE_MS = 500; // how long pushed ground takes to get most of the way to rest
+  var maps = [];
 
-  function nearest(r, g, b) {
-    var best = PALETTE[0], bestD = Infinity;
-    for (var i = 0; i < PALETTE.length; i++) {
-      var c = PALETTE[i], dr = r - c[0], dg = g - c[1], db = b - c[2];
-      var dist = 2 * dr * dr + 4 * dg * dg + 3 * db * db;
-      if (dist < bestD) { bestD = dist; best = c; }
+  function newSeed() { return 10000 + Math.floor(Math.random() * 90000); }
+  function metres(height) { return Math.round(height / STEP * STEP_M / 10) * 10; } // to 10 m, so moving ground reads calmly
+
+  // Seeded gradient noise, roughly -1..1
+  function noise(seed) {
+    function corner(ix, iy, x, y) {
+      var h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + seed) | 0;
+      h = Math.imul(h ^ (h >>> 15), 2246822519);
+      h = Math.imul(h ^ (h >>> 13), 3266489917);
+      var angle = ((h ^ (h >>> 16)) >>> 0) / 4294967296 * 2 * Math.PI;
+      return Math.cos(angle) * (x - ix) + Math.sin(angle) * (y - iy);
     }
-    return best;
+    return function (x, y) {
+      var ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+      var u = fx * fx * fx * (fx * (fx * 6 - 15) + 10), v = fy * fy * fy * (fy * (fy * 6 - 15) + 10);
+      var top = corner(ix, iy, x, y), bottom = corner(ix, iy + 1, x, y);
+      top += u * (corner(ix + 1, iy, x, y) - top);
+      bottom += u * (corner(ix + 1, iy + 1, x, y) - bottom);
+      return (top + v * (bottom - top)) * 1.5;
+    };
   }
 
-  function dither(img) {
-    var cv = img._dither || document.createElement('canvas');
-    var shown = img._dither || img;
-    var d = dot(), w = Math.round(shown.clientWidth / d), h = Math.round(shown.clientHeight / d);
-    if (!w || !h || !img.naturalWidth) return;
-    cv.width = w;
-    cv.height = h;
-    var ctx = cv.getContext('2d', { willReadFrequently: true });
-    var scale = Math.max(w / img.naturalWidth, h / img.naturalHeight); // object-fit: cover
-    var sw = w / scale, sh = h / scale;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, 0, 0, w, h);
-    try {
-      var data = ctx.getImageData(0, 0, w, h), px = data.data;
-      for (var y = 0; y < h; y++) {
-        for (var x = 0; x < w; x++) {
-          var i = (y * w + x) * 4, t = ((BAYER4[(y & 3) * 4 + (x & 3)] + 0.5) / 16 - 0.5) * 72;
-          var c = nearest(px[i] + t, px[i + 1] + t, px[i + 2] + t);
-          px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
+  // Call fn(sample, weight) for every sample within REACH of a point; the weight is 1 at the point and 0 at REACH
+  function around(m, x, y, fn) {
+    for (var j = Math.max(0, Math.ceil((y - REACH) / GRID)); j < m.rows && j * GRID <= y + REACH; j++) {
+      for (var i = Math.max(0, Math.ceil((x - REACH) / GRID)); i < m.cols && i * GRID <= x + REACH; i++) {
+        var d = Math.hypot(i * GRID - x, j * GRID - y) / REACH;
+        if (d < 1) fn(j * m.cols + i, (1 - d * d) * (1 - d * d));
+      }
+    }
+  }
+
+  // A click: the sample under it becomes the highest ground within REACH, and gets a spot height.
+  // Ground nearer the text than the click rises less, and ground at the text not at all.
+  function summit(m, x, y) {
+    var i = Math.round(x / GRID), j = Math.round(y / GRID), at = j * m.cols + i, top = 0, free = m.clear[at];
+    if (!free) return; // up against the text
+    around(m, i * GRID, j * GRID, function (p) { top = Math.max(top, m.base[p] + m.goal[p]); });
+    around(m, i * GRID, j * GRID, function (p, w) {
+      m.goal[p] += (top + 3 * STEP - m.base[p] - m.goal[p]) * w * Math.min(1, m.clear[p] / free);
+    });
+    if (m.summits.every(function (s) { return s.at !== at; })) m.summits.push({ x: i * GRID, y: j * GRID, at: at });
+  }
+
+  // Self-check: on a slope, the clicked sample ends up above everything around it
+  var slope = { cols: 40, rows: 40, base: Float32Array.from({ length: 1600 }, function (_, p) { return p % 40 / 40; }), goal: new Float32Array(1600), clear: new Float32Array(1600).fill(1), summits: [] };
+  summit(slope, 60, 60);
+  around(slope, 60, 60, function (p) {
+    console.assert(p === 410 || slope.base[p] + slope.goal[p] < slope.base[410] + slope.goal[410], 'map: summit', p);
+  });
+
+  // The ground this frame: the still ground, plus what clicks and the pointer have pushed up (settling
+  // towards the clicks alone), plus the swell, which only shows near sea level
+  function rise(m, now, elapsed) {
+    var heights = m.heights, lift = m.lift, settle = reduceMotion ? 1 : 1 - Math.exp(-elapsed / SETTLE_MS);
+    for (var p = 0; p < heights.length; p++) {
+      lift[p] += (m.goal[p] - lift[p]) * settle;
+      var h = m.base[p] + lift[p], low = h / SHORE;
+      heights[p] = reduceMotion ? h : h + SWELL * Math.exp(-low * low) * Math.sin(now / 1400 + m.phase[p]);
+    }
+  }
+
+  // Sample the still ground on the grid: rolling hills, sinking to open water around the text
+  function survey(m) {
+    var n = noise(m.seed), cols = m.cols, rows = m.rows, heights = m.base = new Float32Array(cols * rows);
+    m.heights = new Float32Array(cols * rows);
+    m.goal = new Float32Array(cols * rows);  // what clicks have raised
+    m.lift = new Float32Array(cols * rows);  // the same plus the pointer's wake, as drawn
+    m.phase = new Float32Array(cols * rows); // where each sample is in the swell
+    m.clear = new Float32Array(cols * rows); // how freely a click or the pointer may push each sample up: not at all by the text
+    var hill = 420;                                        // px across the largest hills
+    var shore = Math.max(90, Math.min(260, 0.3 * Math.min(m.width, m.height))); // px over which the ground falls away to the text
+    for (var j = 0; j < rows; j++) {
+      for (var i = 0; i < cols; i++) {
+        var x = i * GRID, y = j * GRID, px = x / hill, py = y / hill;
+        var ground = 0.38 + 0.62 * n(px, py) + 0.28 * n(px * 2 + 40, py * 2 + 40) + 0.12 * n(px * 4 + 80, py * 4 + 80);
+        var near = Infinity;
+        for (var k = 0; k < m.voids.length; k++) {
+          var r = m.voids[k];
+          near = Math.min(near, Math.hypot(Math.max(r[0] - x, 0, x - r[2]), Math.max(r[1] - y, 0, y - r[3])));
+        }
+        near *= 1 + 0.8 * n(px * 1.5 + 120, py * 1.5 + 120); // so the coast wanders instead of tracing the text box
+        var t = Math.max(0, Math.min(1, 1 - (near - 24) / shore));
+        heights[j * cols + i] = ground - 1.7 * t * t * (3 - 2 * t);
+        m.clear[j * cols + i] = 1 - t;
+        m.phase[j * cols + i] = 6 * n(px * 3 + 160, py * 3 + 160); // so the shore does not rise and fall all at once
+      }
+    }
+    // Spot heights: the tallest summits of the still ground, kept apart from each other and off the edges.
+    // They stay put while the ground moves, and read out its height where they stand.
+    var summits = [];
+    for (j = 8; j < rows - 8; j++) {
+      for (i = 8; i < cols - 8; i++) {
+        var h = heights[j * cols + i], top = h > 4 * STEP;
+        for (var dj = -1; top && dj <= 1; dj++) {
+          for (var di = -1; di <= 1; di++) if (heights[(j + dj) * cols + i + di] > h) top = false;
+        }
+        if (top) summits.push({ x: i * GRID, y: j * GRID, at: j * cols + i, height: h });
+      }
+    }
+    summits.sort(function (a, b) { return b.height - a.height; });
+    m.summits = [];
+    summits.forEach(function (s) {
+      var apart = m.summits.every(function (o) { return Math.hypot(o.x - s.x, o.y - s.y) > 200; });
+      if (apart && m.summits.length < 4) m.summits.push(s);
+    });
+  }
+
+  // Marching squares: for each of the 16 corner patterns, the cell edges a contour crosses, in pairs.
+  // Edges are numbered 0 top, 1 right, 2 bottom, 3 left.
+  var EDGES = [[], [3, 0], [0, 1], [3, 1], [1, 2], [3, 0, 1, 2], [0, 2], [3, 2], [3, 2], [0, 2], [0, 1, 3, 2], [1, 2], [3, 1], [0, 1], [3, 0], []];
+
+  // Self-check: a pattern and its inverse cross the same edges
+  for (var c = 0; c < 16; c++) {
+    console.assert(EDGES[c].slice().sort().join() === EDGES[15 - c].slice().sort().join(), 'map: edge table', c);
+  }
+
+  // Trace every contour into one path per level; level k is the line at height k * STEP
+  function trace(m) {
+    var heights = m.heights, cols = m.cols, paths = m.paths = {};
+    var i, j, a, b, c, d, v;
+    function crossX(edge) { return edge === 0 ? i + (v - a) / (b - a) : edge === 2 ? i + (v - d) / (c - d) : edge === 1 ? i + 1 : i; }
+    function crossY(edge) { return edge === 1 ? j + (v - b) / (c - b) : edge === 3 ? j + (v - a) / (d - a) : edge === 2 ? j + 1 : j; }
+    for (j = 0; j < m.rows - 1; j++) {
+      for (i = 0; i < cols - 1; i++) {
+        a = heights[j * cols + i];
+        b = heights[j * cols + i + 1];
+        c = heights[(j + 1) * cols + i + 1];
+        d = heights[(j + 1) * cols + i];
+        var lowest = Math.max(-WATER_LINES, Math.ceil(Math.min(a, b, c, d) / STEP));
+        var highest = Math.floor(Math.max(a, b, c, d) / STEP);
+        for (var k = lowest; k <= highest; k++) {
+          v = k * STEP;
+          var edges = EDGES[(a > v) | (b > v) << 1 | (c > v) << 2 | (d > v) << 3];
+          var path = paths[k] || (paths[k] = new Path2D());
+          for (var e = 0; e < edges.length; e += 2) {
+            path.moveTo(crossX(edges[e]) * GRID, crossY(edges[e]) * GRID);
+            path.lineTo(crossX(edges[e + 1]) * GRID, crossY(edges[e + 1]) * GRID);
+          }
         }
       }
-      ctx.putImageData(data, 0, 0);
-    } catch (err) {
-      return; // cross-origin image: keep the original
     }
-    if (!img._dither) {
-      cv.className = 'dithered';
-      cv.setAttribute('role', 'img');
-      cv.setAttribute('aria-label', img.alt);
-      img.after(cv);
-      img.hidden = true;
-      img._dither = cv;
-      new ResizeObserver(function () { dither(img); }).observe(cv);
-    }
+    m.levels = Object.keys(paths).map(Number).sort(function (p, q) { return p - q; });
   }
 
-  document.querySelectorAll('img.dither').forEach(function (img) {
-    if (img.complete && img.naturalWidth) dither(img);
-    else img.addEventListener('load', function () { dither(img); }, { once: true });
-  });
-
-  // ============================================
-  // Space art: nebula, stars and the wireframe planet (spec 5).
-  // Drawn at the art resolution (1 art pixel = 2 dots) and scaled up without smoothing.
-  // ============================================
-  var VERT = '#version 300 es\nin vec2 p;\nvoid main() { gl_Position = vec4(p, 0.0, 1.0); }';
-  var FRAG = [
-    '#version 300 es',
-    'precision highp float;',
-    'uniform vec2 uRes;      // art resolution',
-    'uniform float uTime;    // seconds',
-    'uniform float uReveal;  // 0..1, Bayer dissolve',
-    'uniform vec4 uVoid;     // text box in art px (x0, y0, x1, y1), y down',
-    'uniform vec3 uPlanet;   // centre and radius in art px; radius 0 = none',
-    'uniform vec2 uSeed;     // noise offset: picks the composition',
-    'uniform float uSide;    // where clouds gather: 1 right, -1 left, 0 both edges',
-    'uniform float uDensity; // shifts the cloud cover',
-    'uniform vec2 uSpark[4];',
-    'out vec4 outColor;',
-    'const float PI = 3.14159265;',
-    'const vec3 BLACK = vec3(0.0), WHITE = vec3(1.0), LGREY = vec3(0.624);',
-    'const vec3 CYAN = vec3(0.404, 0.714, 0.741), PURPLE = vec3(0.545, 0.247, 0.588), GREEN = vec3(0.333, 0.627, 0.286);',
-    'const vec3 BLUE = vec3(0.251, 0.192, 0.553), YELLOW = vec3(0.749, 0.808, 0.447), LGREEN = vec3(0.580, 0.878, 0.537);',
-    'const vec3 LBLUE = vec3(0.471, 0.412, 0.769);',
-    'float bayer4(vec2 p) {',
-    '  ivec2 i = ivec2(mod(p, 4.0));',
-    '  const float m[16] = float[16](0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.);',
-    '  return (m[i.y * 4 + i.x] + 0.5) / 16.0;',
-    '}',
-    'float bayer8(vec2 p) {',
-    '  ivec2 i = ivec2(mod(floor(p / 4.0), 2.0));',
-    '  const float m2[4] = float[4](0., 2., 3., 1.);',
-    '  return (floor(bayer4(p) * 16.0) * 4.0 + m2[i.y * 2 + i.x] + 0.5) / 64.0;',
-    '}',
-    'float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }',
-    'float vnoise(vec2 p) {',
-    '  vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);',
-    '  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);',
-    '}',
-    'float fbm(vec2 p) {',
-    '  float v = 0.0, a = 0.5; const mat2 m = mat2(1.6, 1.2, -1.2, 1.6);',
-    '  for (int i = 0; i < 5; i++) { v += a * vnoise(p); p = m * p; a *= 0.5; }',
-    '  return v;',
-    '}',
-    'mat3 rotX(float a) { float c = cos(a), s = sin(a); return mat3(1, 0, 0, 0, c, s, 0, -s, c); }',
-    'mat3 rotY(float a) { float c = cos(a), s = sin(a); return mat3(c, 0, -s, 0, 1, 0, s, 0, c); }',
-    'mat3 rotZ(float a) { float c = cos(a), s = sin(a); return mat3(c, s, 0, -s, c, 0, 0, 0, 1); }',
-    '// 30-degree latitude/longitude lines, one pixel wide',
-    'float gridLine(vec3 g) {',
-    '  float lat = asin(clamp(g.y, -1.0, 1.0)), lon = atan(g.x, g.z);',
-    '  float lon2 = lon < 0.0 ? lon + 2.0 * PI : lon, st = PI / 6.0;',
-    '  float fl = fwidth(lat), fo = min(fwidth(lon), fwidth(lon2));',
-    '  float dLat = abs(lat - st * floor(lat / st + 0.5)), dLon = abs(lon - st * floor(lon / st + 0.5));',
-    '  return ((abs(lat) < 1.2 && dLat < 0.55 * fl) || (abs(lat) < 1.3 && dLon < 0.55 * fo)) ? 1.0 : 0.0;',
-    '}',
-    'void main() {',
-    '  vec2 px = vec2(floor(gl_FragCoord.x), uRes.y - 1.0 - floor(gl_FragCoord.y));',
-    '  float by = bayer4(px);',
-    '  vec3 col = BLACK;',
-    '  // The void: no art or stars behind text',
-    '  vec2 vc = (uVoid.xy + uVoid.zw) * 0.5, vh = (uVoid.zw - uVoid.xy) * 0.5;',
-    '  float vd = vh.x > 0.0 ? length(max(abs(px + 0.5 - vc) - vh, 0.0)) : 1e4;',
-    '  float textVoid = 1.0 - smoothstep(2.0, 30.0, vd);',
-    '  bool calm = vd < 4.0;',
-    '  bool hasPlanet = uPlanet.z > 0.0;',
-    '  vec2 pd = (px + 0.5 - uPlanet.xy) / max(uPlanet.z, 1.0);',
-    '  float r2 = dot(pd, pd);',
-    '  float planetVoid = hasPlanet ? 1.0 - smoothstep(1.3, 2.4, sqrt(r2)) : 0.0;',
-    '  // Nebula: domain-warped fbm on fat (2x1) pixels, thresholded into rims and bodies',
-    '  vec2 fat = vec2(floor(px.x / 2.0) * 2.0, px.y);',
-    '  float bf = bayer4(fat / vec2(2.0, 1.0));',
-    '  vec2 uv = fat / 180.0 * 2.6 + uSeed * 0.37;',
-    '  vec2 q = vec2(fbm(uv), fbm(uv + vec2(5.2, 1.3)));',
-    '  float n = fbm(uv + 2.4 * q + uSeed);',
-    '  vec2 e = px / uRes;',
-    '  float side = uSide > 0.5 ? e.x : uSide < -0.5 ? 1.0 - e.x : abs(2.0 * e.x - 1.0);',
-    '  float edgeBias = smoothstep(0.3, 1.0, side) + 0.5 * smoothstep(0.7, 1.0, abs(2.0 * e.y - 1.0));',
-    '  float dens = n - 0.6 * textVoid - 0.4 * planetVoid + 0.14 * edgeBias + uDensity;',
-    '  float t = calm ? -1.0 : (dens - 0.5) / 0.3 + (bf - 0.5) * 0.16 + (hash(fat) - 0.5) * 0.05;',
-    '  if (t >= 0.0) {',
-    '    col = t < 0.05 ? YELLOW : t < 0.12 ? CYAN : t < 0.26 ? LBLUE : PURPLE;',
-    '    if (t > 0.4) {',
-    '      float inner = fbm(uv * 2.3 + q * 2.0 + vec2(11.0, 4.0)) + (bf - 0.5) * 0.22;',
-    '      col = inner > 0.66 ? LBLUE : inner > 0.5 ? PURPLE : BLUE;',
-    '    }',
-    '    float ridge = 1.0 - abs(2.0 * fbm(uv * 1.7 + q * 1.5 + vec2(3.1, 7.7)) - 1.0);',
-    '    if (t > 0.2 && ridge > 0.955) col = CYAN; else if (t > 0.2 && ridge > 0.93) col = LBLUE;',
-    '  } else if (!calm && hash(px + uSeed * 17.0) > 0.9935) {',
-    '    float k = hash(px * 1.7 + 3.1);',
-    '    col = k < 0.45 ? WHITE : k < 0.75 ? LGREY : k < 0.93 ? LBLUE : k < 0.97 ? CYAN : YELLOW;',
-    '    if (hash(px + 9.2) < 0.35 && sin(uTime * (0.8 + 2.5 * hash(px + 1.3)) + 6.2832 * hash(px + 4.4)) < -0.2) col = BLACK;',
-    '  }',
-    '  // Sparkles: white centre, lgrey at 1, lblue arms that pulse between 2 and 3',
-    '  if (!calm) {',
-    '    for (int i = 0; i < 4; i++) {',
-    '      vec2 a = abs(px - uSpark[i]);',
-    '      float arm = 2.0 + step(0.0, sin(uTime * 1.3 + float(i) * 1.7));',
-    '      if (a.x + a.y < 0.5) col = WHITE;',
-    '      else if (min(a.x, a.y) < 0.5) { float m = max(a.x, a.y); if (m < 1.5) col = LGREY; else if (m < arm + 0.5) col = LBLUE; }',
-    '    }',
-    '  }',
-    '  // Wireframe planet: lit from the upper left, turning once a minute, with a ring',
-    '  if (hasPlanet) {',
-    '    float zs = sqrt(max(1.0 - r2, 0.0)), r = sqrt(r2);',
-    '    vec3 front = vec3(pd.x, -pd.y, zs), back = vec3(pd.x, -pd.y, -zs);',
-    '    mat3 orient = rotZ(-0.35) * rotX(0.42);',
-    '    mat3 toBody = rotY(-uTime * 2.0 * PI / 60.0) * transpose(orient);',
-    '    float gF = gridLine(toBody * front), gB = gridLine(toBody * back);',
-    '    vec3 axis = orient * vec3(0.0, 1.0, 0.0);',
-    '    float rz = -(axis.x * pd.x - axis.y * pd.y) / axis.z;',
-    '    float rr = length(vec3(pd.x, -pd.y, rz)), fr = fwidth(rr);',
-    '    bool line = abs(rr - 1.45) < 0.55 * fr || abs(rr - 1.68) < 0.55 * fr;',
-    '    bool band = rr > 1.45 && rr < 1.68 && by < 0.2;',
-    '    vec3 L = normalize(vec3(-0.75, 0.55, 0.40));',
-    '    if (r >= 1.0) {',
-    '      if (r < 1.22) {',
-    '        float lit = dot(normalize(vec2(pd.x, -pd.y)), normalize(L.xy)) * 0.5 + 0.5;',
-    '        float v = (1.0 - (r - 1.0) / 0.22) * (0.2 + 0.8 * lit) + (by - 0.5) * 0.35;',
-    '        if (v > 0.75) col = CYAN; else if (v > 0.5) col = LBLUE; else if (v > 0.28) col = BLUE;',
-    '      }',
-    '      if (rz < 0.0) { if (line) col = LBLUE; else if (band) col = BLUE; }',
-    '    } else {',
-    '      float lambert = dot(front, L);',
-    '      float rim = pow(1.0 - zs, 1.3) * max(lambert, 0.0) * 1.35 + (by - 0.5) * 0.18;',
-    '      col = rim > 0.62 ? WHITE : rim > 0.45 ? YELLOW : rim > 0.3 ? LGREEN : rim > 0.18 ? GREEN : BLACK;',
-    '      if (gB > 0.5 && col == BLACK && mod(px.x + px.y, 2.0) < 1.0) col = BLUE;',
-    '      if (gF > 0.5) col = lambert > 0.45 ? WHITE : lambert > 0.1 ? CYAN : lambert > -0.35 ? LBLUE : BLUE;',
-    '    }',
-    '    if (rz >= 0.0) { if (line) col = CYAN; else if (band) col = LBLUE; }',
-    '  }',
-    '  if (bayer8(px) >= uReveal) col = BLACK;',
-    '  outColor = vec4(col, 1.0);',
-    '}'
-  ].join('\n');
-
-  function compile(gl, type, src) {
-    var sh = gl.createShader(type);
-    gl.shaderSource(sh, src);
-    gl.compileShader(sh);
-    if (gl.getShaderParameter(sh, gl.COMPILE_STATUS)) return sh;
-    console.warn(gl.getShaderInfoLog(sh));
-    return null;
-  }
-
-  function mulberry(a) {
-    return function () {
-      a = (a + 0x6d2b79f5) | 0;
-      var t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  function parseSeed(raw) {
-    var parts = String(raw || '').split(',').map(Number);
-    if (parts.length === 2) return parts;
-    var n = parts[0] || 0; // a hash: spread it over a few hundred noise units
-    return [(n % 997) / 31, (Math.floor(n / 997) % 991) / 29];
-  }
-
-  var scenes = [];
-
-  function layout(s) {
-    var a = 2 * dot(), box = s.box.getBoundingClientRect();
-    var w = Math.ceil(box.width / a), h = Math.ceil(box.height / a);
-    if (!w || !h) { s.w = 0; return; }
-    if (!s.w) s.start = performance.now(); // replay the dissolve whenever the art appears
-    s.w = w;
-    s.h = h;
-    s.cv.width = w;
-    s.cv.height = h;
-    s.cv.style.width = w * a + 'px';
-    s.cv.style.height = h * a + 'px';
-    s.gl.viewport(0, 0, w, h);
-    var v = null;
-    s.box.querySelectorAll('[data-void]').forEach(function (el) {
-      var r = el.getBoundingClientRect();
-      if (!r.width) return;
-      var q = [(r.left - box.left) / a, (r.top - box.top) / a, (r.right - box.left) / a, (r.bottom - box.top) / a];
-      v = v ? [Math.min(v[0], q[0]), Math.min(v[1], q[1]), Math.max(v[2], q[2]), Math.max(v[3], q[3])] : q;
+  // Draw the levels from the lowest up. `shown` counts visible levels; its fraction is the next one fading in.
+  function paint(m, shown) {
+    var ctx = m.ctx, css = getComputedStyle(root);
+    var land = css.getPropertyValue('--land'), water = css.getPropertyValue('--water');
+    ctx.setTransform(m.dpr, 0, 0, m.dpr, 0, 0);
+    ctx.clearRect(0, 0, m.width, m.height);
+    m.levels.forEach(function (k, n) {
+      var alpha = Math.min(1, shown - n);
+      if (alpha <= 0) return;
+      var heavy = k % 5 === 0; // the coast and every fifth contour
+      ctx.strokeStyle = k > 0 ? land : water;
+      ctx.lineWidth = heavy ? 1.25 : 0.75;
+      ctx.globalAlpha = alpha * (k < 0 ? 0.35 : heavy ? 0.9 : 0.5);
+      ctx.stroke(m.paths[k]);
     });
-    s.void = v || [0, 0, -1, -1];
-    var pl = s.box.querySelector('[data-planet]'), pr = pl && pl.getBoundingClientRect();
-    s.planet = pr && pr.width
-      ? [(pr.left + pr.width / 2 - box.left) / a, (pr.top + pr.height / 2 - box.top) / a, pr.width / 3.5 / a]
-      : [0, 0, 0];
-    // 1 to 4 sparkles, away from the text and the planet
-    var rnd = mulberry(Math.floor(s.seed[0] * 7919 + s.seed[1] * 104729)), count = Math.max(1, Math.min(4, Math.round(w * h / 20000)));
-    s.sparks = [];
-    for (var tries = 0; s.sparks.length < count * 2 && tries < 200; tries++) {
-      var x = Math.floor(6 + rnd() * (w - 12)), y = Math.floor(6 + rnd() * (h - 12));
-      if (x > s.void[0] - 10 && x < s.void[2] + 10 && y > s.void[1] - 10 && y < s.void[3] + 10) continue;
-      if (s.planet[2] && Math.hypot(x - s.planet[0], y - s.planet[1]) < s.planet[2] * 2.4) continue;
-      s.sparks.push(x, y);
-    }
-    while (s.sparks.length < 8) s.sparks.push(-99, -99);
-    draw(s, performance.now());
+    // Spot heights arrive last, each knocked out of the lines beneath it like a map label
+    ctx.globalAlpha = Math.max(0, Math.min(1, shown - m.levels.length));
+    ctx.font = '500 condensed 11px Archivo, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = css.getPropertyValue('--paper');
+    m.summits.forEach(function (s) {
+      var text = String(metres(m.heights[s.at]));
+      ctx.strokeText(text, s.x + 7, s.y);
+      ctx.fillStyle = css.getPropertyValue('--text-2');
+      ctx.fillText(text, s.x + 7, s.y);
+      ctx.fillStyle = land;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 2, 0, 2 * Math.PI);
+      ctx.fill();
+    });
   }
 
-  function draw(s, now) {
-    if (!s.w) return;
-    var gl = s.gl, u = s.u;
-    gl.uniform2f(u.uRes, s.w, s.h);
-    gl.uniform1f(u.uTime, reduceMotion ? 0 : now / 1000);
-    gl.uniform1f(u.uReveal, reduceMotion ? 1 : Math.min(1, (now - s.start) / 900));
-    gl.uniform4fv(u.uVoid, s.void);
-    gl.uniform3fv(u.uPlanet, s.planet);
-    gl.uniform2fv(u.uSeed, s.seed);
-    gl.uniform1f(u.uSide, s.side);
-    gl.uniform1f(u.uDensity, s.density);
-    gl.uniform2fv(u.uSpark, s.sparks);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  // Draw one frame: move the ground, redraw the lines.
+  // Keeps going while the map is on screen; stands still for reduced motion.
+  function run(m) {
+    cancelAnimationFrame(m.raf);
+    if (!m.width) return;
+    var now = performance.now(), moving = !reduceMotion && m.seen;
+    if (moving) m.raf = requestAnimationFrame(function () { run(m); });
+    // About 30 frames a second while the map is arriving or was just touched; 12 is plenty for the swell alone
+    if (moving && now - m.drawn < (now < Math.max(m.start + REVEAL_MS, m.stirred + 1500) ? 30 : 80)) return;
+    rise(m, now, now - m.drawn);
+    m.drawn = now;
+    trace(m);
+    var t = reduceMotion ? 1 : Math.min(1, (now - m.start) / REVEAL_MS);
+    paint(m, (1 - Math.pow(1 - t, 3)) * (m.levels.length + 1));
+    // The marginal note: the elevation under the pointer, or of the highest spot height
+    if (!m.elev) return;
+    var h = m.pointer >= 0 ? m.heights[m.pointer] : Math.max.apply(null, m.summits.map(function (o) { return m.heights[o.at]; }));
+    var text = h > 0 ? (m.pointer >= 0 ? 'Elevation ' : 'Summit ') + metres(h) + ' m' : 'Open water';
+    if (m.elev.textContent !== text) m.elev.textContent = text;
   }
+
+  function layout(m, restart) {
+    var box = m.box.getBoundingClientRect();
+    var width = Math.ceil(box.width), height = Math.ceil(box.height);
+    if (!width || !height) { m.width = 0; m.key = ''; return; } // hidden: the reveal replays when it comes back
+    // Keep-clear boxes: any text marked data-void that overlaps this map, in the map's own coordinates
+    var voids = [];
+    document.querySelectorAll('[data-void]').forEach(function (el) {
+      var r = el.getBoundingClientRect();
+      if (!r.width || r.right < box.left || r.left > box.right || r.bottom < box.top || r.top > box.bottom) return;
+      voids.push([r.left - box.left, r.top - box.top, r.right - box.left, r.bottom - box.top]);
+    });
+    // Surveying is the slow part: skip it when neither the box nor the text over it has changed
+    var key = [width, height].concat(voids).join();
+    if (key === m.key && !restart) return;
+    m.key = key;
+    m.voids = voids;
+    if (!m.width || restart) m.start = performance.now();
+    m.width = width;
+    m.height = height;
+    m.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    m.cv.width = width * m.dpr;
+    m.cv.height = height * m.dpr;
+    m.cv.style.width = width + 'px';
+    m.cv.style.height = height + 'px';
+    m.cols = Math.ceil(width / GRID) + 1;
+    m.rows = Math.ceil(height / GRID) + 1;
+    survey(m);
+    m.drawn = 0; // the canvas was just cleared: draw now, whatever the frame pacing says
+    run(m);
+  }
+
+  // Settles when the text font has loaded, or failed to
+  var fontReady = document.fonts ? document.fonts.load('1em Archivo').catch(function () {}) : Promise.resolve();
 
   document.querySelectorAll('canvas.art').forEach(function (cv) {
-    var gl = cv.getContext('webgl2', { antialias: false, depth: false, alpha: false, powerPreference: 'low-power' });
-    if (!gl) return; // no WebGL 2: the page stays plain black
-    var vs = compile(gl, gl.VERTEX_SHADER, VERT), fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
-    if (!vs || !fs) return;
-    var prog = gl.createProgram();
-    gl.attachShader(prog, vs);
-    gl.attachShader(prog, fs);
-    gl.bindAttribLocation(prog, 0, 'p');
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
-    gl.useProgram(prog);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-    var u = {};
-    ['uRes', 'uTime', 'uReveal', 'uVoid', 'uPlanet', 'uSeed', 'uSide', 'uDensity', 'uSpark'].forEach(function (name) {
-      u[name] = gl.getUniformLocation(prog, name);
+    var m = { cv: cv, ctx: cv.getContext('2d'), box: cv.parentElement, width: 0, seed: newSeed(), seen: true, pointer: -1, stirred: -Infinity };
+    maps.push(m);
+
+    // The marginal note: sheet number, the elevation under the pointer, and a button to survey again
+    var sheet = m.box.querySelector('[data-sheet]');
+    if (sheet) {
+      var id = sheet.querySelector('[data-sheet-id]');
+      m.elev = sheet.querySelector('[data-sheet-elev]');
+      sheet.hidden = false;
+      if (id) { // the home page shows the elevation only
+        id.textContent = 'Sheet ' + m.seed;
+        sheet.querySelector('[data-sheet-redraw]').addEventListener('click', function () {
+          m.seed = newSeed();
+          id.textContent = 'Sheet ' + m.seed;
+          layout(m, true);
+        });
+      }
+    }
+    m.box.addEventListener('pointermove', function (e) {
+      var box = m.box.getBoundingClientRect(), x = e.clientX - box.left, y = e.clientY - box.top;
+      var moved = Math.min(60, Math.hypot(x - m.px, y - m.py)); // NaN on the way in, so no wake from the jump
+      if (moved && !reduceMotion) around(m, x, y, function (p, w) { m.lift[p] += WAKE * moved * w * m.clear[p]; });
+      m.stirred = performance.now();
+      m.px = x;
+      m.py = y;
+      m.pointer = Math.round(y / GRID) * m.cols + Math.round(x / GRID);
+      if (reduceMotion) run(m);
     });
-    var s = {
-      cv: cv, gl: gl, u: u, box: cv.parentElement, w: 0, start: 0, visible: true,
-      seed: parseSeed(cv.getAttribute('data-seed')),
-      side: cv.hasAttribute('data-side') ? +cv.getAttribute('data-side') : 1,
-      density: +cv.getAttribute('data-density') || 0
-    };
-    scenes.push(s);
-    new ResizeObserver(function () { layout(s); }).observe(s.box);
-    new IntersectionObserver(function (entries) { s.visible = entries[0].isIntersecting; }).observe(cv);
+    m.box.addEventListener('pointerleave', function () { m.pointer = -1; m.px = NaN; if (reduceMotion) run(m); });
+    // Not on the text or the controls: land there would run under the words
+    m.box.addEventListener('click', function (e) {
+      if (e.target.closest('a, button, input, select, textarea, label, [data-void]')) return;
+      var box = m.box.getBoundingClientRect();
+      summit(m, e.clientX - box.left, e.clientY - box.top);
+      m.stirred = performance.now();
+      if (reduceMotion) run(m);
+    });
+
+    // Surveying is slow, so it waits twice. For the font: the text, and so the coastline, moves when it arrives.
+    // And for the observer's turn to end: that runs before the browser paints, and would hold up the first paint.
+    new ResizeObserver(function () { fontReady.then(function () { setTimeout(function () { layout(m); }); }); }).observe(m.box);
+    // Stop working while the map is scrolled out of view
+    new IntersectionObserver(function (entries) { m.seen = entries[entries.length - 1].isIntersecting; run(m); }).observe(cv);
   });
 
-  if (scenes.length) {
-    // The text column can move once the pixel font arrives
-    if (document.fonts) document.fonts.ready.then(function () { scenes.forEach(layout); });
-    // Ambient motion on a 50 ms timer (20 steps per second), only for art on screen
-    if (!reduceMotion) {
-      setInterval(function () {
-        if (document.hidden) return;
-        var now = performance.now();
-        scenes.forEach(function (s) { if (s.visible) draw(s, now); });
-      }, 50);
-    }
+  if (maps.length) {
+    // The inks change with the colour scheme
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { maps.forEach(run); });
   }
 })();

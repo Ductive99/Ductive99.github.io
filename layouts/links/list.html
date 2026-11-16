@@ -1,6 +1,6 @@
 {{ define "main" }}
 <div class="links-page">
-  <canvas class="art" data-seed="11.4,3.7" data-side="0" aria-hidden="true"></canvas>
+  <canvas class="art" aria-hidden="true"></canvas>
   <div class="links-inner" data-void>
     <header class="links-head">
       <h1>El Houssain Souhail</h1>
@@ -9,24 +9,24 @@
 
     <ul class="links-list">
       <li>
-        <a href="https://elhoussain.me" class="link-card frame">
-          <i class="ic ic-lg ic-planet-lg link-logo"></i>
+        <a href="https://elhoussain.me" class="link-card">
+          <i class="ic ic-site link-icon"></i>
           <span class="link-text">
             <span class="link-name">Personal website</span>
             elhoussain.me: portfolio, blog and projects
           </span>
-          <i class="ic ic-right"></i>
+          <i class="ic ic-out"></i>
         </a>
       </li>
       {{ range .Site.Params.social }}
       <li>
-        <a href="{{ .url }}" class="link-card frame" target="_blank" rel="me noopener noreferrer">
-          <i class="ic ic-lg ic-{{ lower .name }}-lg link-logo"></i>
+        <a href="{{ .url }}" class="link-card" target="_blank" rel="me noopener noreferrer">
+          {{ with .icon }}<i class="ic ic-{{ . }} link-icon"></i>{{ end }}
           <span class="link-text">
-            <span class="link-name">{{ .name }}{{ if .new }}<span class="link-new">New</span>{{ end }}</span>
+            <span class="link-name">{{ .name }}</span>
             {{ with .handle }}{{ . }}: {{ end }}{{ .note }}
           </span>
-          <i class="ic ic-right"></i>
+          <i class="ic ic-out"></i>
         </a>
       </li>
       {{ end }}

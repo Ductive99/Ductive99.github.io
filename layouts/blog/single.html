@@ -1,8 +1,24 @@
 {{ define "main" }}
-{{ partial "masthead.html" (dict "page" . "meta" (.Date.Format "Monday, 2 January 2006") "tags" (.GetTerms "tags")) }}
+{{ partial "masthead.html" (dict "page" . "date" .Date "meta" (printf "%d min read" .ReadingTime) "tags" (.GetTerms "tags")) }}
 
-<article class="wrap section">
+<article class="wrap section" data-post>
   <div class="prose">
+    {{- /* book: "Title" in the front matter ties the post to that entry of data/books.yaml */ -}}
+    {{ with .Params.book }}
+    {{ range first 1 (where (site.Data.books | default slice) "title" .) }}
+    <p class="muted">Notes on <a href="{{ "library/" | relURL }}#{{ anchorize .title }}"><cite>{{ .title }}</cite></a>{{ with .author }} by {{ . }}{{ end }}</p>
+    {{ else }}
+    {{ errorf "%s: book %q is not in data/books.yaml" $.File.Path . }}
+    {{ end }}
+    {{ end }}
+
+    {{ if ge (len .Fragments.HeadingsMap) 3 }}
+    <details class="toc" open>
+      <summary>Contents</summary>
+      {{ .TableOfContents }}
+    </details>
+    {{ end }}
+
     {{ .Content }}
   </div>
 

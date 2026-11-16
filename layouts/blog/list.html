@@ -12,8 +12,15 @@
   </div>
   {{ end }}
 
+  {{ with .Pages }}
   <ul class="post-list">
-    {{ range .Pages }}{{ partial "post-row.html" . }}{{ end }}
+    {{ range . }}{{ partial "post-row.html" . }}{{ end }}
   </ul>
+  {{ else }}
+  <p class="empty">Nothing published yet.</p>
+  {{ end }}
+  {{ with .OutputFormats.Get "rss" }}
+  <p class="feed"><a href="{{ .RelPermalink }}" class="hint">Subscribe by RSS<i class="ic ic-out"></i></a></p>
+  {{ end }}
 </div>
 {{ end }}

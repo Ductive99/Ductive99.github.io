@@ -1,15 +1,11 @@
-<footer class="footbar">
-  <div class="wrap footbar-inner">
+<footer class="site-foot">
+  <div class="wrap site-foot-inner">
     <p>&copy; {{ now.Year }} El Houssain Souhail</p>
     <nav class="hints" aria-label="Elsewhere">
       {{ range .Site.Params.social }}
-      <a href="{{ .url }}" class="hint" target="_blank" rel="me noopener noreferrer"><i class="ic ic-{{ lower .name }}"></i>{{ .name }}</a>
+      <a href="{{ .url }}" class="hint" target="_blank" rel="me noopener noreferrer">{{ with .icon }}<i class="ic ic-{{ . }}"></i>{{ end }}{{ .name }}<i class="ic ic-out"></i></a>
       {{ end }}
     </nav>
-    <p class="readout" data-year-meter hidden>
-      <span data-year>{{ now.Year }}</span>
-      <span class="meter" aria-hidden="true">{{ range seq 10 }}<i></i>{{ end }}</span>
-      <span class="readout-value" data-year-value></span>
-    </p>
+    <p class="label" data-year hidden></p>
   </div>
 </footer>

@@ -1,7 +1,25 @@
+{{- /* Images as Obsidian pastes them: ![caption](img/file.png), looked up next to the post or in the blog's img folder.
+       A missing file fails the build. Width and height are written out so the page does not jump while loading. */ -}}
+{{- $u := urls.Parse .Destination -}}
 {{- $src := .Destination -}}
-{{- $alt := .Text -}}
-{{- $title := .Title -}}
+{{- $size := "" -}}
+{{- if and (not $u.Scheme) (not (hasPrefix $u.Path "/")) -}}
+  {{- $path := strings.TrimPrefix "./" $u.Path -}}
+  {{- with or (.PageInner.Resources.Get $path) (.PageInner.CurrentSection.Resources.Get $path) -}}
+    {{- $src = .RelPermalink -}}
+    {{- if and (eq .ResourceType "image") (ne .MediaType.SubType "svg") -}}
+      {{- $size = printf ` width="%d" height="%d"` .Width .Height -}}
+    {{- end -}}
+  {{- else -}}
+    {{- errorf "%s: image %q not found" .PageInner.File.Path .Destination -}}
+  {{- end -}}
+{{- end -}}
+{{- $img := printf `<img src="%s" alt="%s"%s loading="lazy">` $src (.PlainText | htmlEscape) $size | safeHTML -}}
+{{- if .IsBlock -}}
 <figure>
-  <img src="{{ $src }}" alt="{{ $alt }}" {{ with $title }}title="{{ . }}"{{ end }} loading="lazy">
-  {{ with $alt }}<figcaption>{{ . }}</figcaption>{{ end }}
+  {{ $img }}
+  {{ with .Text }}<figcaption>{{ . }}</figcaption>{{ end }}
 </figure>
+{{- else -}}
+{{ $img }}
+{{- end -}}

@@ -1,10 +1,10 @@
 {{ define "main" }}
 <header class="masthead">
-  <canvas class="art" data-seed="{{ hash.FNV32a .Title }}" data-density="-0.08" aria-hidden="true"></canvas>
+  <canvas class="art" aria-hidden="true"></canvas>
   <div class="wrap masthead-inner">
     <div class="masthead-text" data-void>
-      <h1>Timer</h1>
-      <p class="dim" id="total-today">0h 0m today</p>
+      <h1 class="title">Timer</h1>
+      <p class="label" id="total-today">0h 0m today</p>
       <button id="btn-privacy" class="light" aria-pressed="false" title="Scramble project names on screen">Privacy</button>
     </div>
   </div>
@@ -18,7 +18,7 @@
     <span class="tt-active-dot" id="active-dot"></span>
     <span class="tt-active-name" id="active-name"></span>
     <span class="tt-active-status" id="active-status" hidden>Paused</span>
-    <canvas class="big" id="active-clock" data-px="3" role="img" aria-label="00:00:00"></canvas>
+    <span class="clock" id="active-clock">00:00:00</span>
     <div class="tt-active-controls">
       <button class="timer-btn tt-active-playpause" id="active-playpause" title="Pause"><i class="ic ic-pause"></i></button>
       <button class="timer-btn tt-active-stop" id="active-stop" title="Stop"><i class="ic ic-stop"></i></button>
@@ -28,8 +28,8 @@
 
   <!-- Projects -->
   <section class="tt-panel frame" id="project-panel" aria-label="Projects"></section>
-  <datalist id="c64-palette">
-    {{ range slice "#67b6bd" "#7869c4" "#94e089" "#bfce72" "#b86962" "#8b3f96" "#55a049" "#40318d" "#883932" "#8b5429" "#574200" "#9f9f9f" "#787878" "#505050" "#ffffff" }}<option value="{{ . }}"></option>{{ end }}
+  <datalist id="project-palette">
+    {{ range slice "#c4622d" "#2c6bb0" "#3f8f5b" "#c99a2e" "#8a5aa8" "#2a9d9d" "#c4577a" "#6b7785" }}<option value="{{ . }}"></option>{{ end }}
   </datalist>
 
   <!-- Last session / session editor -->
@@ -73,17 +73,16 @@
   </div>
 </dialog>
 
-<!-- Focus mode: the lock screen for the running task -->
+<!-- Focus mode: only the running task, on its own map -->
 <div id="focus-overlay" hidden>
   <div class="focus-stage">
-    <canvas class="art" data-seed="17.2,5.4" aria-hidden="true"></canvas>
+    <canvas class="art" aria-hidden="true"></canvas>
     <div class="wrap hero-inner">
       <div class="hero-text" data-void>
-        <canvas class="big" id="focus-clock" data-fit role="img" aria-label="00:00:00"></canvas>
+        <p class="clock clock-xl" id="focus-clock">00:00:00</p>
         <p class="focus-name"><span class="focus-dot" id="focus-dot"></span><span id="focus-name"></span></p>
         <p class="focus-status" id="focus-status" hidden>Paused</p>
       </div>
-      <div class="hero-planet" data-planet aria-hidden="true"></div>
     </div>
   </div>
   <div class="focus-bar">

@@ -26,8 +26,8 @@
   var deletingSessionId = null;
   var privacyMode = false;
   var baseTitle = document.title;
-  // New projects cycle through the brighter C64 colours
-  var PALETTE = ['#67b6bd', '#7869c4', '#94e089', '#bfce72', '#b86962', '#8b3f96', '#55a049', '#9f9f9f'];
+  // New projects cycle through these (the same list as the colour picker's suggestions)
+  var PALETTE = ['#c4622d', '#2c6bb0', '#3f8f5b', '#c99a2e', '#8a5aa8', '#2a9d9d', '#c4577a', '#6b7785'];
   var ICON = {
     play: '<i class="ic ic-play"></i>', pause: '<i class="ic ic-pause"></i>', stop: '<i class="ic ic-stop"></i>',
     edit: '<i class="ic ic-edit"></i>', plus: '<i class="ic ic-plus"></i>', close: '<i class="ic ic-close"></i>',
@@ -62,10 +62,8 @@
     return h + 'h ' + m + 'm';
   }
   function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-  // Clocks are drawn as big pixel digits by main.js
-  function setBig(cv, text) {
-    if (!cv || cv._text === text) return;
-    if (window.drawBig) window.drawBig(cv, text); else cv.setAttribute('aria-label', text);
+  function setBig(el, text) {
+    if (el && el.textContent !== text) el.textContent = text;
   }
   var _gibCache = {};
   function gibberish(str) {
@@ -335,7 +333,6 @@
     updateFocusOverlay();
     $focusOverlay.hidden = false;
     document.body.classList.add('tt-focus-active');
-    $focusClock._text = null; // redraw at the size of the now-visible overlay
     tick();
   }
 
@@ -374,7 +371,7 @@
         html += '</div>';
       } else if (editingId === p.id) {
         html += '<div class="tt-row tt-row-edit">';
-        html += '<input type="color" id="edit-color-' + p.id + '" class="timer-color" list="c64-palette" value="' + p.color + '" aria-label="Colour">';
+        html += '<input type="color" id="edit-color-' + p.id + '" class="timer-color" list="project-palette" value="' + p.color + '" aria-label="Colour">';
         html += '<input type="text" id="edit-name-' + p.id + '" class="timer-input" value="' + esc(p.name).replace(/"/g, '&quot;') + '" aria-label="Project name">';
         html += '<button class="timer-btn-sm" data-saveedit="' + p.id + '">Save</button>';
         html += '<button class="tt-row-btn" data-canceledit="1" title="Cancel">' + ICON.close + '</button>';
@@ -488,7 +485,7 @@
 
     html += '<div class="tt-project tt-add-project-row">';
     html += '<input type="text" id="new-project-name" class="timer-input" placeholder="New project" aria-label="New project name">';
-    html += '<input type="color" id="new-project-color" class="timer-color" list="c64-palette" value="' + PALETTE[projects.length % PALETTE.length] + '" aria-label="Colour">';
+    html += '<input type="color" id="new-project-color" class="timer-color" list="project-palette" value="' + PALETTE[projects.length % PALETTE.length] + '" aria-label="Colour">';
     html += '<button class="timer-btn-sm" id="btn-add-project">Add</button>';
     html += '</div>';
 
@@ -1346,7 +1343,7 @@
     h += '<span class="tt-lastsess-name">' + label + ': ' + name + '</span>';
     h += '<button class="tt-row-btn" data-trim="close" title="Close">' + ICON.close + '</button>';
     h += '</div>';
-    // Solid: kept. Dithered: paused, or cut off after the handle.
+    // Solid: kept. Washed out: paused, or cut off after the handle.
     h += '<div class="tt-trim-timeline"><div class="tt-trim-track" title="Drag to trim the end">';
     h += '<div class="tt-trim-track-inner" style="left:0;width:100%;background:' + color + ';"></div>';
     (s.pauseLog || []).forEach(function(p) {
@@ -1486,11 +1483,11 @@
 
     // Rendered off-screen with the page's own styles, then captured
     var wrap = document.createElement('div');
-    wrap.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:800px;padding:40px;background:#000;color:#fff;border:2px solid #7869c4;';
+    wrap.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:800px;padding:40px;background:var(--paper);color:var(--ink);';
 
-    var html = '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:32px;padding-bottom:16px;margin-bottom:32px;border-bottom:2px solid #40318d;">';
-    html += '<div>Timer <span style="color:#787878;">elhoussain.me</span></div>';
-    html += '<div style="text-align:right;">' + esc(periodLabel) + ' <span style="color:#9f9f9f;">' + totalTime + '</span></div>';
+    var html = '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:32px;padding-bottom:16px;margin-bottom:32px;border-bottom:1px solid var(--rule-strong);">';
+    html += '<div style="font-weight:600;">Timer <span style="font-weight:400;color:var(--text-3);">elhoussain.me</span></div>';
+    html += '<div style="text-align:right;">' + esc(periodLabel) + ' <span style="color:var(--text-2);">' + totalTime + '</span></div>';
     html += '</div>';
     wrap.innerHTML = html;
 
@@ -1538,15 +1535,15 @@
       projArr.sort(function(a, b) { return b.dur - a.dur; });
 
       if (projArr.length > 0) {
-        var legHtml = '<div style="display:flex;flex-wrap:wrap;gap:16px 32px;margin-top:32px;padding-top:16px;border-top:2px solid #40318d;">';
+        var legHtml = '<div style="display:flex;flex-wrap:wrap;gap:16px 32px;margin-top:32px;padding-top:16px;border-top:1px solid var(--rule-strong);">';
         projArr.forEach(function(pItem) {
           var p = getProj(pItem.id);
           var name = p ? p.name : 'Unknown';
           var color = p ? p.color : '#787878';
-          legHtml += '<div style="display:flex;align-items:center;gap:16px;">';
-          legHtml += '<span style="width:12px;height:12px;background:' + color + ';"></span>';
+          legHtml += '<div style="display:flex;align-items:center;gap:10px;">';
+          legHtml += '<span style="width:12px;height:12px;border-radius:50%;background:' + color + ';"></span>';
           legHtml += '<span>' + esc(name) + '</span>';
-          legHtml += '<span style="color:#9f9f9f;">' + fmtShort(pItem.dur) + '</span>';
+          legHtml += '<span style="color:var(--text-2);">' + fmtShort(pItem.dur) + '</span>';
           legHtml += '</div>';
         });
         legHtml += '</div>';
@@ -1571,7 +1568,7 @@
     loadHtml2Canvas(function() {
       setTimeout(function() {
         html2canvas(wrap, {
-          backgroundColor: '#000000',
+          backgroundColor: getComputedStyle(document.documentElement).backgroundColor,
           scale: 2,
           logging: false
         }).then(function(canvas) {

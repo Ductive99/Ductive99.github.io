@@ -1,20 +1,19 @@
 {{ define "main" }}
 <section class="hero">
-  <canvas class="art" data-seed="6.3,21.7" aria-hidden="true"></canvas>
+  <canvas class="art" aria-hidden="true"></canvas>
   <div class="wrap hero-inner">
     <div class="hero-text" data-void>
-      <canvas class="big" data-text="404" role="img" aria-label="404"></canvas>
-      <p class="hero-date" data-path>This page does not exist</p>
-      <h1 class="hero-name">Page not found</h1>
+      <h1 class="display">Off the map</h1>
+      <p class="lead" data-path>This page does not exist.</p>
       <blockquote class="quote">
         <p>Not all those who wander are lost.</p>
-        <footer>- J.R.R. Tolkien</footer>
+        <footer>J.R.R. Tolkien</footer>
       </blockquote>
       <p class="hints">
         <a href="{{ "/" | relURL }}" class="hint" data-key="enter"><kbd>Enter</kbd>Return home</a>
       </p>
     </div>
-    <div class="hero-planet" data-planet aria-hidden="true"></div>
+    {{ partial "sheet.html" . }}
   </div>
 </section>
 {{ end }}

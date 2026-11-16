@@ -1,18 +1,23 @@
 {{ define "main" }}
 <section class="hero">
-  <canvas class="art" data-seed="2.9,13.1" aria-hidden="true"></canvas>
+  <canvas class="art" aria-hidden="true"></canvas>
   <div class="wrap hero-inner">
     <div class="hero-text" data-void>
-      <h1 class="hero-name">El Houssain Souhail</h1>
-      <p class="muted">{{ .Site.Params.description }}</p>
-      <div class="quote">{{ .Content }}</div>
+      {{- /* Posts this reader may have missed. main.js shows the newest one that is under a week old and unopened. */ -}}
+      {{ range first 3 (where .Site.RegularPages "Section" "blog") }}
+      <a class="hint new-post" href="{{ .RelPermalink }}" data-new="{{ .Date.Format "2006-01-02T15:04:05Z07:00" }}" hidden><b>New post</b>{{ .Title }}<i class="ic ic-right"></i></a>
+      {{ end }}
+      <h1 class="display">El Houssain Souhail</h1>
+      <p class="lead">{{ .Site.Params.description }}</p>
+      <div class="bio">{{ .Content }}</div>
       <nav class="hints" aria-label="Profiles">
         {{ range .Site.Params.social }}
-        <a href="{{ .url }}" class="hint" target="_blank" rel="me noopener noreferrer"><i class="ic ic-{{ lower .name }}"></i>{{ .name }}</a>
+        <a href="{{ .url }}" class="hint" target="_blank" rel="me noopener noreferrer">{{ with .icon }}<i class="ic ic-{{ . }}"></i>{{ end }}{{ .name }}<i class="ic ic-out"></i></a>
         {{ end }}
       </nav>
     </div>
-    <div class="hero-planet" data-planet aria-hidden="true"></div>
+    {{- /* The elevation under the pointer, filled in by main.js. The 404 page has the full note (partials/sheet.html). */ -}}
+    <p class="sheet" data-void data-sheet hidden><span data-sheet-elev></span></p>
   </div>
 </section>
 
@@ -26,21 +31,26 @@
     {{ range . }}
     {{ $title := .title }}
     {{ $primary := false }}{{ with .links }}{{ $primary = index . 0 }}{{ end }}
-    <article class="project frame">
-      {{ with .image }}<img class="project-img dither" src="{{ . }}" alt="Screenshot of {{ $title }}" loading="lazy">{{ end }}
-      <div class="project-body">
-        <h3 class="project-title">
-          {{ with $primary }}<a href="{{ .url }}"{{ if hasPrefix .url "http" }} target="_blank" rel="noopener noreferrer"{{ end }}>{{ end }}{{ .title }}{{ if $primary }}</a>{{ end }}
-        </h3>
-        <p class="project-desc">{{ .description }}</p>
-        {{ with .links }}
-        <p class="hints">
-          {{ range . }}
-          <a href="{{ .url }}" class="hint"{{ if hasPrefix .url "http" }} target="_blank" rel="noopener noreferrer"{{ end }}>{{ .label }}<i class="ic ic-right"></i></a>
-          {{ end }}
-        </p>
+    <article class="project">
+      {{- /* Screenshots live in assets/ and are cut to the card's 3:2 at two sizes; a missing file fails the build */ -}}
+      {{ with .image }}
+      {{ with resources.Get (strings.TrimPrefix "/" .) }}
+      {{ $small := .Fill "720x480 Center webp" }}
+      <img class="project-img" src="{{ $small.RelPermalink }}" srcset="{{ $small.RelPermalink }} 720w, {{ (.Fill "960x640 Center webp").RelPermalink }} 960w" sizes="(min-width: 57rem) 33rem, 100vw" alt="Screenshot of {{ $title }}" loading="lazy">
+      {{ else }}{{ errorf "data/projects.yaml: image %q not found in assets/" . }}{{ end }}
+      {{ end }}
+      <h3 class="project-title">
+        {{ with $primary }}<a href="{{ .url }}"{{ if hasPrefix .url "http" }} target="_blank" rel="noopener noreferrer"{{ end }}>{{ end }}{{ .title }}{{ if $primary }}</a>{{ end }}
+      </h3>
+      <p class="project-desc">{{ .description }}</p>
+      {{ with .links }}
+      <p class="hints">
+        {{ range . }}
+        {{ $external := hasPrefix .url "http" }}
+        <a href="{{ .url }}" class="hint"{{ if $external }} target="_blank" rel="noopener noreferrer"{{ end }}>{{ .label }}<i class="ic ic-{{ cond $external "out" "right" }}"></i></a>
         {{ end }}
-      </div>
+      </p>
+      {{ end }}
     </article>
     {{ end }}
   </div>

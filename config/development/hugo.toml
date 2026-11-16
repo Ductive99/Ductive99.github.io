@@ -1,0 +1,2 @@
+# Local preview (hugo server) shows drafts. The deployed site is built in the production environment and never does.
+buildDrafts = true

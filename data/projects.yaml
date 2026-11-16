@@ -2,7 +2,7 @@
 # Fields:
 #   title       (required) - Project name
 #   description (required) - Short description
-#   image       (optional) - Path to image in /images/projects/
+#   image       (optional) - Path to image, kept in assets/images/projects/ (resized at build time)
 #   links       (optional) - List of {label, url} pairs
 
 

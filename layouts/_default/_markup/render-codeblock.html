@@ -1,0 +1,8 @@
+{{- /* ```c {title="src/main.c" lineNos=true hl_lines=[2]}: a strip naming the file (or the language) and a copy button, shown by main.js */ -}}
+<div class="code">
+  <div class="code-head">
+    <span>{{ .Attributes.title | default .Type | default "text" }}</span>
+    <button type="button" class="hint" data-copy hidden>Copy</button>
+  </div>
+  <pre tabindex="0" class="chroma"><code>{{ (transform.HighlightCodeBlock .).Inner }}</code></pre>
+</div>
