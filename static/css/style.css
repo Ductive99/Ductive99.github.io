@@ -37,6 +37,10 @@
   --success: #2c7a4b;
   --plum: #7d4f9e;
   --shadow: 0 1.5rem 4rem -1rem rgba(19, 28, 27, 0.3);
+  --highlight: rgba(196, 98, 45, 0.22);
+  --imprint: rgba(19, 28, 27, 0.045);
+  --imprint-lit: rgba(255, 255, 255, 0.9);
+  --imprint-shade: rgba(19, 28, 27, 0.14);
 
   --gutter: clamp(1.25rem, 5vw, 3rem);
   --wrap: 68rem;
@@ -61,6 +65,10 @@
     --success: #7fc79a;
     --plum: #c39ade;
     --shadow: 0 1.5rem 4rem -1rem rgba(0, 0, 0, 0.7);
+    --highlight: rgba(217, 132, 82, 0.28);
+    --imprint: rgba(0, 0, 0, 0.1);
+    --imprint-lit: rgba(233, 239, 237, 0.07);
+    --imprint-shade: rgba(0, 0, 0, 0.6);
   }
 }
 
@@ -693,21 +701,59 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .quote {
   color: var(--text-2);
+  font-size: clamp(1rem, 0.9rem + 0.5vw, 1.1875rem);
   font-style: italic;
+  line-height: 1.6;
+}
+
+.quote p + p {
+  margin-top: 1rem;
+}
+
+/* The line everyone quotes, marked like a highlighter on paper */
+.quote mark {
+  color: var(--ink);
+  background: none;
+  box-shadow: inset 0 -0.45em var(--highlight);
 }
 
 .quote footer {
-  margin-top: 0.25rem;
+  margin-top: 1rem;
+  font-size: 1rem;
   font-style: normal;
   color: var(--text-3);
 }
 
-/* The sheet's marginal note: its number, what is under the pointer, and a button to survey again */
+/* 404: the number pressed into the sheet, under the text, with the contours showing through */
+.imprint {
+  position: absolute;
+  right: 0;
+  top: 4.5rem;
+  z-index: 0;
+  font-stretch: 125%;
+  font-weight: 900;
+  font-size: clamp(9rem, 30vw, 28rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--imprint);
+  text-shadow: 0 1px 0 var(--imprint-lit), 0 -1px 0 var(--imprint-shade);
+  pointer-events: none;
+  user-select: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The map's marginal note: the elevation under the pointer */
 .sheet {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem 1.25rem;
 }
 
 /* Room for the longest reading from the start, empty or not: the ground is surveyed around this note
@@ -718,23 +764,6 @@ input[type="number"]::-webkit-outer-spin-button {
 
 [data-sheet-elev]:empty::before {
   content: "\a0";
-}
-
-.sheet button {
-  padding: 0;
-  background: none;
-  border: 0;
-  font: inherit;
-  color: var(--text-2);
-  text-decoration: underline;
-  text-decoration-color: var(--rule-strong);
-  text-underline-offset: 0.2em;
-  cursor: pointer;
-}
-
-.sheet button:hover {
-  color: var(--water);
-  text-decoration-color: currentColor;
 }
 
 /* Inner pages: a shallow strip of the map behind the title */

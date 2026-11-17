@@ -111,9 +111,6 @@
   announce();
   window.addEventListener('pageshow', announce); // coming back from the post with the Back button
 
-  var pathEl = document.querySelector('[data-path]');
-  if (pathEl) pathEl.textContent = 'Nothing is charted at ' + location.pathname;
-
   // How much of the year has gone by, in the footer
   var year = document.querySelector('[data-year]');
   if (year) {
@@ -381,20 +378,11 @@
     var m = { cv: cv, ctx: cv.getContext('2d'), box: cv.parentElement, width: 0, seed: newSeed(), seen: true, pointer: -1, stirred: -Infinity };
     maps.push(m);
 
-    // The marginal note: sheet number, the elevation under the pointer, and a button to survey again
+    // The marginal note: the elevation under the pointer
     var sheet = m.box.querySelector('[data-sheet]');
     if (sheet) {
-      var id = sheet.querySelector('[data-sheet-id]');
       m.elev = sheet.querySelector('[data-sheet-elev]');
       sheet.hidden = false;
-      if (id) { // the home page shows the elevation only
-        id.textContent = 'Sheet ' + m.seed;
-        sheet.querySelector('[data-sheet-redraw]').addEventListener('click', function () {
-          m.seed = newSeed();
-          id.textContent = 'Sheet ' + m.seed;
-          layout(m, true);
-        });
-      }
     }
     m.box.addEventListener('pointermove', function (e) {
       var box = m.box.getBoundingClientRect(), x = e.clientX - box.left, y = e.clientY - box.top;

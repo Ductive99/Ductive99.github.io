@@ -1,19 +1,28 @@
 {{ define "main" }}
 <section class="hero">
   <canvas class="art" aria-hidden="true"></canvas>
+  <p class="imprint" aria-hidden="true">404</p>
   <div class="wrap hero-inner">
     <div class="hero-text" data-void>
-      <h1 class="display">Off the map</h1>
-      <p class="lead" data-path>This page does not exist.</p>
+      <h1 class="visually-hidden">Page not found</h1>
       <blockquote class="quote">
-        <p>Not all those who wander are lost.</p>
-        <footer>J.R.R. Tolkien</footer>
+        <p>All that is gold does not glitter,<br>
+        <mark>Not all those who wander are lost;</mark><br>
+        The old that is strong does not wither,<br>
+        Deep roots are not reached by the frost.</p>
+        <p>From the ashes a fire shall be woken,<br>
+        A light from the shadows shall spring;<br>
+        Renewed shall be blade that was broken,<br>
+        The crownless again shall be king.</p>
+        <footer>J.R.R. Tolkien, <cite>The Fellowship of the Ring</cite></footer>
       </blockquote>
       <p class="hints">
         <a href="{{ "/" | relURL }}" class="hint" data-key="enter"><kbd>Enter</kbd>Return home</a>
+        <a href="{{ "/blog/" | relURL }}" class="hint">Read the blog<i class="ic ic-right"></i></a>
       </p>
     </div>
-    {{ partial "sheet.html" . }}
+    {{- /* The elevation under the pointer, filled in by main.js */ -}}
+    <p class="sheet" data-void data-sheet hidden><span data-sheet-elev></span></p>
   </div>
 </section>
 {{ end }}
