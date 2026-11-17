@@ -727,7 +727,7 @@ input[type="number"]::-webkit-outer-spin-button {
 /* 404: the number pressed into the sheet, under the text, with the contours showing through */
 .imprint {
   position: absolute;
-  right: 0;
+  right: 0.08em; /* the negative letter-spacing trails the last 4 too, pushing its ink past the box */
   top: 4.5rem;
   z-index: 0;
   font-stretch: 125%;

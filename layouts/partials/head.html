@@ -44,8 +44,9 @@
 {{ end }}{{ end }}
 <link rel="icon" type="image/svg+xml" href="{{ "images/favicon.svg" | absURL }}">
 <link rel="preload" href="{{ "fonts/Archivo.woff2" | absURL }}" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="{{ "css/style.css" | absURL }}">
-<script src="{{ "js/main.js" | absURL }}" defer></script>
+{{- /* ?v= changes with the file, so browsers drop their cached copy (Cloudflare keeps it 4h) on each deploy */ -}}
+<link rel="stylesheet" href="{{ "css/style.css" | absURL }}?v={{ readFile "static/css/style.css" | md5 | truncate 8 "" }}">
+<script src="{{ "js/main.js" | absURL }}?v={{ readFile "static/js/main.js" | md5 | truncate 8 "" }}" defer></script>
 {{- /* Fetch a page when its link is hovered, so the click finds it ready. Not prerender: that would run
        the page's script and count a post as opened. */}}
 <script type="speculationrules">{"prefetch":[{"where":{"href_matches":"/*"},"eagerness":"moderate"}]}</script>
