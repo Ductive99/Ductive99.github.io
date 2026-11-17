@@ -212,6 +212,7 @@
     m.clear = new Float32Array(cols * rows); // how freely a click or the pointer may push each sample up: not at all by the text
     var hill = 420;                                        // px across the largest hills
     var shore = Math.max(90, Math.min(260, 0.3 * Math.min(m.width, m.height))); // px over which the ground falls away to the text
+    var sea = -(WATER_LINES + 0.5) * STEP; // the ground at the text: just under the deepest depth line, so the lines run right up to it
     for (var j = 0; j < rows; j++) {
       for (var i = 0; i < cols; i++) {
         var x = i * GRID, y = j * GRID, px = x / hill, py = y / hill;
@@ -222,8 +223,8 @@
           near = Math.min(near, Math.hypot(Math.max(r[0] - x, 0, x - r[2]), Math.max(r[1] - y, 0, y - r[3])));
         }
         near *= 1 + 0.8 * n(px * 1.5 + 120, py * 1.5 + 120); // so the coast wanders instead of tracing the text box
-        var t = Math.max(0, Math.min(1, 1 - (near - 24) / shore));
-        heights[j * cols + i] = ground - 1.7 * t * t * (3 - 2 * t);
+        var t = Math.max(0, Math.min(1, 1 - (near - 6) / shore));
+        heights[j * cols + i] = ground + (sea - ground) * t * t * (3 - 2 * t);
         m.clear[j * cols + i] = 1 - t;
         m.phase[j * cols + i] = 6 * n(px * 3 + 160, py * 3 + 160); // so the shore does not rise and fall all at once
       }
@@ -247,6 +248,11 @@
       if (apart && m.summits.length < 4) m.summits.push(s);
     });
   }
+
+  // Self-check: ground at the text sits under the deepest depth line
+  var bay = { seed: 1, cols: 40, rows: 40, width: 240, height: 240, voids: [[100, 100, 140, 120]] };
+  survey(bay);
+  console.assert(bay.base[18 * 40 + 20] < -WATER_LINES * STEP, 'map: text at sea');
 
   // Marching squares: for each of the 16 corner patterns, the cell edges a contour crosses, in pairs.
   // Edges are numbered 0 top, 1 right, 2 bottom, 3 left.
@@ -344,12 +350,20 @@
     var box = m.box.getBoundingClientRect();
     var width = Math.ceil(box.width), height = Math.ceil(box.height);
     if (!width || !height) { m.width = 0; m.key = ''; return; } // hidden: the reveal replays when it comes back
-    // Keep-clear boxes: any text marked data-void that overlaps this map, in the map's own coordinates
-    var voids = [];
+    // Keep-clear boxes: each line of text inside a data-void element that overlaps this map, in the map's own
+    // coordinates. Lines, not the whole block, so the land fills in beside short lines (most of a phone screen).
+    // An element with no text yet (the empty elevation note) keeps clear its whole box.
+    var voids = [], range = document.createRange();
     document.querySelectorAll('[data-void]').forEach(function (el) {
-      var r = el.getBoundingClientRect();
-      if (!r.width || r.right < box.left || r.left > box.right || r.bottom < box.top || r.top > box.bottom) return;
-      voids.push([r.left - box.left, r.top - box.top, r.right - box.left, r.bottom - box.top]);
+      var rects = [], walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      while (walk.nextNode()) {
+        range.selectNodeContents(walk.currentNode);
+        Array.prototype.forEach.call(range.getClientRects(), function (r) { if (r.width) rects.push(r); });
+      }
+      (rects.length ? rects : [el.getBoundingClientRect()]).forEach(function (r) {
+        if (!r.width || r.right < box.left || r.left > box.right || r.bottom < box.top || r.top > box.bottom) return;
+        voids.push([r.left - box.left, r.top - box.top, r.right - box.left, r.bottom - box.top]);
+      });
     });
     // Surveying is the slow part: skip it when neither the box nor the text over it has changed
     var key = [width, height].concat(voids).join();
