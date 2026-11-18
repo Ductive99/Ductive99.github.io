@@ -26,8 +26,9 @@
   var deletingSessionId = null;
   var privacyMode = false;
   var baseTitle = document.title;
-  // New projects cycle through these (the same list as the colour picker's suggestions)
-  var PALETTE = ['#c4622d', '#2c6bb0', '#3f8f5b', '#c99a2e', '#8a5aa8', '#2a9d9d', '#c4577a', '#6b7785'];
+  // New projects cycle through these; they are also the colour picker's swatches
+  var PALETTE = ['#ff1744', '#ff6d00', '#ffea00', '#00e676', '#00e5ff', '#2979ff', '#d500f9', '#ff4081'];
+  var PALETTE_NAMES = ['Electric red', 'Bright orange', 'Sunshine yellow', 'Neon green', 'Electric cyan', 'Vivid blue', 'Neon purple', 'Hot pink'];
   var ICON = {
     play: '<i class="ic ic-play"></i>', pause: '<i class="ic ic-pause"></i>', stop: '<i class="ic ic-stop"></i>',
     edit: '<i class="ic ic-edit"></i>', plus: '<i class="ic ic-plus"></i>', close: '<i class="ic ic-close"></i>',
@@ -371,7 +372,7 @@
         html += '</div>';
       } else if (editingId === p.id) {
         html += '<div class="tt-row tt-row-edit">';
-        html += '<input type="color" id="edit-color-' + p.id + '" class="timer-color" list="project-palette" value="' + p.color + '" aria-label="Colour">';
+        html += colorBtn('edit-color-' + p.id, p.color);
         html += '<input type="text" id="edit-name-' + p.id + '" class="timer-input" value="' + esc(p.name).replace(/"/g, '&quot;') + '" aria-label="Project name">';
         html += '<button class="timer-btn-sm" data-saveedit="' + p.id + '">Save</button>';
         html += '<button class="tt-row-btn" data-canceledit="1" title="Cancel">' + ICON.close + '</button>';
@@ -485,7 +486,7 @@
 
     html += '<div class="tt-project tt-add-project-row">';
     html += '<input type="text" id="new-project-name" class="timer-input" placeholder="New project" aria-label="New project name">';
-    html += '<input type="color" id="new-project-color" class="timer-color" list="project-palette" value="' + PALETTE[projects.length % PALETTE.length] + '" aria-label="Colour">';
+    html += colorBtn('new-project-color', PALETTE[projects.length % PALETTE.length]);
     html += '<button class="timer-btn-sm" id="btn-add-project">Add</button>';
     html += '</div>';
 
@@ -493,6 +494,11 @@
       html = '<p class="tt-empty">No projects yet. Add one below.</p>' + html;
     }
     $panel.innerHTML = html;
+  }
+
+  // Swatch button; its value is the colour, read on save like an input's
+  function colorBtn(id, color) {
+    return '<button type="button" class="timer-color" id="' + id + '" value="' + color + '" style="--c:' + color + '" aria-label="Colour" aria-haspopup="true"></button>';
   }
 
   // Stopwatch or countdown, shown under the selected row. id is "project" or "project:sub".
@@ -509,6 +515,9 @@
   // Panel event delegation
   $panel.addEventListener('click', function (e) {
     if (e.target.tagName === 'INPUT') return;
+
+    var colBtn = e.target.closest('.timer-color');
+    if (colBtn) { openPicker(colBtn); return; }
 
     // Selection logic
     var sel = e.target.closest('[data-select]');
@@ -703,6 +712,73 @@
       return;
     }
   });
+
+  // --- Colour picker: one shared popover, anchored to whichever swatch button opened it ---
+  var $picker = document.getElementById('color-picker');
+  var pickerFor = null;
+  var pickerWasOpen = false; // outside-tap closes the picker on pointerup, before the button's click
+  $picker.innerHTML = PALETTE.map(function (c, i) {
+    return '<button type="button" class="cp-swatch" style="--c:' + c + ';--tick:' + tickColor(c) + '" data-color="' + c + '" aria-label="' + PALETTE_NAMES[i] + '" aria-pressed="false"></button>';
+  }).join('') + '<label class="cp-swatch cp-custom" title="Custom colour"><input type="color" aria-label="Custom colour"></label>';
+  var $custom = $picker.querySelector('.cp-custom');
+  var $customInput = $custom.querySelector('input');
+
+  $panel.addEventListener('pointerdown', function (e) {
+    pickerWasOpen = !!e.target.closest('.timer-color') && $picker.matches(':popover-open');
+  });
+
+  function openPicker(btn) {
+    var wasOpen = pickerWasOpen || $picker.matches(':popover-open');
+    pickerWasOpen = false;
+    if ($picker.matches(':popover-open')) $picker.hidePopover();
+    if (wasOpen && pickerFor === btn) return; // a second tap on the same button closes it
+    pickerFor = btn;
+    markPicked(btn.value);
+    $picker.showPopover({ source: btn }); // source: Esc / outside tap hand focus back to the button
+    // Open below the button, above if it would run off the bottom; keep inside the viewport sideways
+    var r = btn.getBoundingClientRect(), w = $picker.offsetWidth, h = $picker.offsetHeight;
+    var top = (r.bottom + 8 + h > window.innerHeight && r.top > h + 8) ? r.top - 8 - h : r.bottom + 8;
+    var left = Math.max(8, Math.min(r.left, document.documentElement.clientWidth - w - 8));
+    $picker.style.top = top + window.scrollY + 'px';
+    $picker.style.left = left + window.scrollX + 'px';
+    ($picker.querySelector('[aria-pressed="true"]') || $picker.querySelector('.cp-swatch')).focus();
+  }
+
+  // Dark tick on light swatches (yellow, cyan...), white on the rest
+  function tickColor(hex) {
+    var n = parseInt(hex.slice(1), 16);
+    return 0.299 * (n >> 16) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255) > 128 ? '#1a2321' : '#fff';
+  }
+
+  function markPicked(color) {
+    color = color.toLowerCase();
+    var known = false;
+    $picker.querySelectorAll('[data-color]').forEach(function (s) {
+      var on = s.getAttribute('data-color') === color;
+      s.setAttribute('aria-pressed', on);
+      if (on) known = true;
+    });
+    $custom.classList.toggle('is-on', !known);
+    $custom.style.setProperty('--c', known ? '' : color);
+    $custom.style.setProperty('--tick', tickColor(color));
+    $customInput.value = color;
+  }
+
+  function setPicked(color) {
+    pickerFor.value = color;
+    pickerFor.style.setProperty('--c', color);
+    markPicked(color);
+  }
+
+  $picker.addEventListener('click', function (e) {
+    var s = e.target.closest('[data-color]');
+    if (!s) return;
+    setPicked(s.getAttribute('data-color'));
+    $picker.hidePopover();
+    pickerFor.focus();
+  });
+  $customInput.addEventListener('input', function () { setPicked($customInput.value); });
+  $customInput.addEventListener('change', function () { $picker.hidePopover(); pickerFor.focus(); });
 
   $panel.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') {

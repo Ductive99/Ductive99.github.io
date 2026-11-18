@@ -28,9 +28,7 @@
 
   <!-- Projects -->
   <section class="tt-panel frame" id="project-panel" aria-label="Projects"></section>
-  <datalist id="project-palette">
-    {{ range slice "#c4622d" "#2c6bb0" "#3f8f5b" "#c99a2e" "#8a5aa8" "#2a9d9d" "#c4577a" "#6b7785" }}<option value="{{ . }}"></option>{{ end }}
-  </datalist>
+  <div id="color-picker" class="cp" popover aria-label="Project colour"></div>
 
   <!-- Last session / session editor -->
   <div class="tt-lastsess frame" id="last-session-trim" style="display:none;"></div>
