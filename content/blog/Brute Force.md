@@ -5,7 +5,7 @@ description: Design algorithms using the brute force method
 tags:
   - algorithms
   - programming
-draft: true
+draft: false
 ---
 An *algorithm* is a set of step-by-step instructions for solving a problem.
 
