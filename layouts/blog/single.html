@@ -1,5 +1,8 @@
 {{ define "main" }}
-{{ partial "masthead.html" (dict "page" . "date" .Date "meta" (printf "%d min read" .ReadingTime) "tags" (.GetTerms "tags")) }}
+{{- /* lastmod: YYYY-MM-DD in the front matter shows "Updated …", only here and only when it's a later day than date */ -}}
+{{ $meta := printf "%d min read" .ReadingTime }}
+{{ if gt (.Lastmod.Format "2006-01-02") (.Date.Format "2006-01-02") }}{{ $meta = printf "%s · Updated %s" $meta (.Lastmod.Format "2 Jan 2006") }}{{ end }}
+{{ partial "masthead.html" (dict "page" . "date" .Date "meta" $meta "tags" (.GetTerms "tags")) }}
 
 <article class="wrap section" data-post>
   <div class="prose">

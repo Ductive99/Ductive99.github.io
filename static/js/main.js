@@ -41,6 +41,22 @@
   });
 
   // ============================================
+  // Date sort: <div data-sort="list"> with <button data-order>. The list is built newest first,
+  // so switching order is a reverse.
+  // ============================================
+  document.querySelectorAll('[data-sort]').forEach(function (bar) {
+    var list = document.querySelector(bar.getAttribute('data-sort'));
+    bar.addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-order]');
+      if (!btn || btn.getAttribute('aria-pressed') === 'true') return;
+      bar.querySelectorAll('button[data-order]').forEach(function (b) {
+        b.setAttribute('aria-pressed', b === btn);
+      });
+      Array.prototype.slice.call(list.children).reverse().forEach(function (item) { list.appendChild(item); });
+    });
+  });
+
+  // ============================================
   // Code blocks: the copy button, without the line numbers or the last newline
   // ============================================
   if (navigator.clipboard) {

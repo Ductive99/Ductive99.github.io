@@ -5,12 +5,20 @@
 <div class="wrap section">
   {{ $tags := slice }}
   {{ range .Pages }}{{ range .Params.tags }}{{ $tags = $tags | append . }}{{ end }}{{ end }}
-  {{ with uniq $tags }}
-  <div class="filter-bar" data-filter=".post-row" role="group" aria-label="Filter posts by tag">
-    <button class="toggle" data-value="all" aria-pressed="true">All</button>
-    {{ range . }}<button class="toggle" data-value="{{ . }}" aria-pressed="false">{{ humanize . }}</button>{{ end }}
+  <div class="list-controls">
+    {{ with uniq $tags }}
+    <div class="filter-bar" data-filter=".post-row" role="group" aria-label="Filter posts by tag">
+      <button class="toggle" data-value="all" aria-pressed="true">All</button>
+      {{ range . }}<button class="toggle" data-value="{{ . }}" aria-pressed="false">{{ humanize . }}</button>{{ end }}
+    </div>
+    {{ end }}
+    {{ if gt $n 1 }}
+    <div class="filter-bar sort-bar" data-sort=".post-list" role="group" aria-label="Sort posts by date">
+      <button class="toggle" data-order="desc" aria-pressed="true">Newest</button>
+      <button class="toggle" data-order="asc" aria-pressed="false">Oldest</button>
+    </div>
+    {{ end }}
   </div>
-  {{ end }}
 
   {{ with .Pages }}
   <ul class="post-list">

@@ -430,6 +430,22 @@ kbd {
   margin-bottom: 2.5rem;
 }
 
+/* Blog: tag filters on the left, date sort on the right */
+.list-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.list-controls .filter-bar {
+  margin-bottom: 0;
+}
+
+.sort-bar {
+  margin-left: auto;
+}
+
 /* Small on/off switch with a status dot */
 .light {
   display: inline-flex;
